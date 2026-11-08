@@ -1,63 +1,50 @@
-# Viska
-
-A Windows app that listens to your sales call and shows what to say next. It is made for calls in Swedish.
-
-**[Download Viska.exe](https://github.com/welovevyxzl/viska/releases/latest/download/Viska.exe)** (Windows 10/11, no installer)
-
 <p align="center">
-  <img src="docs/live.png" alt="Viska during a call" width="420">
+  <img src="docs/hero.png" alt="Viska: know what to say next" width="100%">
 </p>
 
-## What it does
-
-The other person says "we don't have the budget for this right now". A second or two later Viska shows a line you can say out loud, plus two alternatives:
-
-> Förstår helt. Om första månaden var gratis, hade ni testat med en klass?
-> 1. Vad gör ni idag när elever behöver läxhjälp?
-> 2. Kan vi boka 15 minuter nästa vecka så visar jag?
-
-It runs in a small window that stays on top of your call. You fill in who you are calling, what you sell, the price, your arguments and the objections you expect. Viska only uses what you wrote and does not make up prices or promises.
-
 <p align="center">
-  <img src="docs/setup.png" alt="Setup screen" width="640">
+  <a href="https://github.com/welovevyxzl/viska/releases/latest/download/Viska.exe"><b>Download Viska.exe</b></a>
+  &nbsp;·&nbsp;
+  <a href="#how-it-works">How it works</a>
+  &nbsp;·&nbsp;
+  <a href="#build-from-source">Build from source</a>
 </p>
 
-## Getting started
+Viska sits in a small window next to your call. The other person says "we have no budget for this", and a second or two later you see a line you can say back, plus two alternatives. It reads your own pitch (who you call, what you sell, price, arguments, objections) and will not invent prices or promises that are not in it.
 
-1. Download `Viska.exe` from the [latest release](https://github.com/welovevyxzl/viska/releases/latest).
-2. Run it and paste in your OpenAI API key. It is stored on your PC only.
-3. Fill in the form, pick a mode and press Starta samtal.
+It is built for calls in Swedish.
 
-Windows SmartScreen will probably warn about an unknown publisher, because the exe is not code-signed. Click More info, then Run anyway.
+<p align="center">
+  <img src="docs/live.png" alt="Live view" width="360">
+  &nbsp;&nbsp;
+  <img src="docs/setup.png" alt="Setup view" width="520">
+</p>
 
-You use your own OpenAI key and pay OpenAI for the usage. Tell the person you are calling that the call is transcribed with AI; GDPR requires it.
+## Install
+
+1. Download [Viska.exe](https://github.com/welovevyxzl/viska/releases/latest/download/Viska.exe). There is no installer.
+2. Run it and paste your OpenAI API key. It is saved on your PC only.
+3. Fill in the form, choose a mode and press **Starta samtal**.
+
+Windows SmartScreen will likely warn about an unknown publisher because the exe is not code-signed. Choose More info, then Run anyway.
+
+You pay OpenAI for what you use. Tell the person you are calling that the call is transcribed with AI, since GDPR requires it.
 
 ## Modes
 
 | | Computer | Phone on speaker |
 |---|---|---|
-| When | The call is on your PC (Teams, Meet, WhatsApp) | You call from a phone next to the PC |
+| For | Calls on your PC: Teams, Meet, WhatsApp | A phone placed next to the PC |
 | Their voice | Captured from the PC's audio output | Picked up by the microphone |
-| Your voice | Microphone | Microphone |
 | Who is talking | Detected automatically | Hold the button (or Space) while they talk |
 
 ## How it works
 
-```mermaid
-flowchart LR
-    A[Your microphone] --> C[Live transcription]
-    B[System audio: their voice] --> D[Live transcription]
-    C --> E[Conversation so far]
-    D --> E
-    F[Your form] --> G[Coach model]
-    E --> G
-    G --> H[Viska window]
-```
+<p align="center">
+  <img src="docs/flow.png" alt="Listen, think, say" width="100%">
+</p>
 
-- Each audio source has its own connection to OpenAI's Realtime API (`gpt-live-transcribe`). A simple voice detector follows the background noise and ends a turn after about half a second of silence.
-- Names and product words from your form are sent as hints so they are spelled correctly. Text in other alphabets, which the transcriber sometimes hallucinates, is dropped.
-- When the other person finishes, the last 14 lines of the conversation and your form go to `gpt-6-luna`. It is told to answer in spoken Swedish in at most 25 words.
-- The answer is streamed into the window as it is written.
+Each audio source gets its own connection to OpenAI's Realtime API. A simple voice detector tracks the background noise, so quiet calls still register, and a turn ends after about half a second of silence. Names and product words from your form go along as hints so they are spelled correctly, and text in other alphabets, which the transcriber sometimes produces by mistake, is thrown away.
 
 ## Build from source
 
@@ -69,7 +56,7 @@ python -m venv .venv
 copy .env.example .env
 ```
 
-Put your key in `.env` (git-ignored), then:
+Put your key in `.env` (git-ignored), then run:
 
 ```bash
 .venv\Scripts\python samtalscoach.py
@@ -83,18 +70,10 @@ To build the exe:
 
 The result is `dist\Viska.exe`.
 
-## Files
+## Notes
 
-- `samtalscoach.py`: audio capture, transcription, the coach and the window logic
-- `ui/index.html`: the interface, shown with pywebview (WebView2)
-- `%APPDATA%\Viska\config.json`: your saved form and settings
-- `%APPDATA%\Viska\viska.log`: log for debugging audio problems
-
-The API key is read from the `OPENAI_API_KEY` environment variable first, then a `.env` file next to the exe, then the saved config.
-
-## Troubleshooting
-
-- "Mikrofonen går inte att öppna": the mic is muted (Fn key or Windows sound settings). Unmute, press Avsluta, then Starta.
-- Nothing from the other person in Computer mode: check that the call audio plays through the output device selected in setup.
-- Names are misspelled: add them to the form.
-- Anything else: read `%APPDATA%\Viska\viska.log`.
+- `samtalscoach.py` holds audio capture, transcription and the coach. `ui/index.html` is the whole interface, shown with pywebview (WebView2).
+- The key is read from the `OPENAI_API_KEY` environment variable, then a `.env` file next to the exe, then the saved config.
+- Your form and settings are in `%APPDATA%\Viska\config.json`. A debug log is in `%APPDATA%\Viska\viska.log`.
+- If the mic will not open, it is probably muted (Fn key or Windows sound settings). Unmute, press Avsluta, then Starta.
+- If you hear nothing from the other person in Computer mode, check that the call audio plays through the output device chosen in setup.
