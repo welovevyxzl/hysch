@@ -39,7 +39,7 @@
 
   /* Mjuk färgbakgrund (statisk) */
   .aura { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-  .aura span { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; }
+  .aura span { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .4; }
   .aura .a { width: 520px; height: 420px; left: -160px; top: -180px; background: #C9BCFF; }
   .aura .b { width: 460px; height: 380px; right: -140px; top: -140px; background: #FFD3C4; }
   .aura .c { width: 520px; height: 360px; left: 30%; bottom: -240px; background: #BFF0DC; opacity: .45; }
@@ -73,7 +73,7 @@
     box-shadow: 0 0 0 1px var(--line), 0 10px 30px -18px rgba(18,15,36,.25); transition: box-shadow .2s var(--ease);
   }
   .who::placeholder { color: var(--faint); font-weight: 400; }
-  .who:focus { box-shadow: 0 0 0 2px var(--violet), 0 12px 34px -16px rgba(91,61,245,.4); }
+  .who:focus { box-shadow: 0 0 0 1px rgba(91,61,245,.5), 0 0 0 5px rgba(91,61,245,.11), 0 14px 36px -18px rgba(91,61,245,.4); }
 
   .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .tile {
@@ -84,17 +84,14 @@
   .span2 { grid-column: span 2; } .span3 { grid-column: span 3; }
   .tile-head { display: flex; align-items: center; gap: 10px; }
   .ico { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; flex: none; }
-  .ico.v { background: #EEEAFF; color: var(--violet); }
-  .ico.c { background: #FFECE7; color: #E24E30; }
-  .ico.m { background: #E3F8EF; color: #0A9467; }
-  .ico.a { background: #FFF3DC; color: #B87400; }
+  .ico.v, .ico.c, .ico.m, .ico.a { background: rgba(18,15,36,.05); color: var(--ink-2); }
   .tile h2 { font-size: 14px; font-weight: 600; }
   .tile h2 small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 1px; }
 
   .f { width: 100%; border: 0; outline: none; background: var(--field); border-radius: 12px; padding: 11px 13px;
     font-size: 14px; line-height: 1.5; transition: background .15s, box-shadow .15s; }
   .f:hover { background: var(--field-hover); }
-  .f:focus { background: #fff; box-shadow: 0 0 0 2px var(--violet); }
+  .f:focus { background: #fff; box-shadow: 0 0 0 1px rgba(91,61,245,.55), 0 0 0 4px rgba(91,61,245,.13); }
   .f::placeholder { color: var(--faint); }
   textarea.f { resize: none; flex: 1; min-height: 64px; }
   select.f { appearance: none; cursor: pointer; padding-right: 34px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -105,22 +102,24 @@
   .ibtn.sq { width: 36px; padding: 0; justify-content: center; }
   .sub { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 6px; display: block; }
 
-  .goals { display: flex; flex-direction: column; gap: 6px; }
-  .goal { display: flex; align-items: center; gap: 10px; border: 0; background: var(--field); border-radius: 12px;
-    padding: 10px 12px; cursor: pointer; font-weight: 500; text-align: left; transition: all .18s var(--ease); }
-  .goal:hover { background: var(--field-hover); }
-  .goal i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--faint); flex: none; transition: all .18s var(--ease); }
-  .goal.on { background: var(--ink); color: #fff; }
-  .goal.on i { box-shadow: inset 0 0 0 5px #fff; }
-
-  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
-  .mode { border: 0; text-align: left; cursor: pointer; background: var(--field); border-radius: 14px; padding: 12px 14px;
-    display: flex; flex-direction: column; gap: 3px; transition: all .18s var(--ease); }
+  /* Segmenterade val med en vit markering som glider mellan alternativen */
+  .goals, .modes { position: relative; background: rgba(18,15,36,.045); padding: 4px; }
+  .goals { display: flex; flex-direction: column; gap: 2px; border-radius: 14px; }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 6px; border-radius: 16px; }
+  .thumb { position: absolute; left: 0; top: 0; width: 0; height: 0; border-radius: 10px; background: #fff; pointer-events: none;
+    box-shadow: 0 0 0 .5px rgba(18,15,36,.08), 0 1px 2px rgba(18,15,36,.06), 0 6px 16px -6px rgba(18,15,36,.2); }
+  .modes .thumb { border-radius: 12px; }
+  .thumb.ready { transition: transform .55s var(--glide), width .55s var(--glide), height .55s var(--glide); }
+  .goal, .mode { position: relative; z-index: 1; border: 0; background: transparent; cursor: pointer; text-align: left;
+    color: var(--ink-2); transition: color .25s var(--smooth), transform .25s var(--spring); }
+  .goal { display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 9px 12px; font-weight: 500; }
+  .goal i { width: 6px; height: 6px; border-radius: 50%; background: var(--violet); flex: none;
+    transform: scale(0); opacity: 0; transition: transform .4s var(--spring), opacity .2s; }
+  .goal:hover, .mode:hover, .goal.on, .mode.on { color: var(--ink); }
+  .goal.on i { transform: scale(1); opacity: 1; }
+  .mode { border-radius: 12px; padding: 11px 14px; display: flex; flex-direction: column; gap: 3px; }
   .mode b { font-size: 14px; font-weight: 600; }
   .mode small { font-size: 12px; color: var(--muted); line-height: 1.4; }
-  .mode:hover { background: var(--field-hover); }
-  .mode.on { background: var(--ink); color: #fff; }
-  .mode.on small { color: rgba(255,255,255,.7); }
   .audio { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .audio.one { grid-template-columns: 1fr; }
   .audio.k3 { grid-template-columns: 1fr 1fr 1fr; }
@@ -201,8 +200,7 @@
   .ibtn.end:hover { background: #FDECEC; color: #D93A1F; }
 
   /* ================= Motion ================= */
-  :root { --spring: cubic-bezier(.34,1.5,.64,1); --smooth: cubic-bezier(.22,1,.36,1); }
-  @property --glow-a { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+  :root { --spring: cubic-bezier(.34,1.5,.64,1); --smooth: cubic-bezier(.22,1,.36,1); --glide: cubic-bezier(.3,1.22,.4,1); }
   .content { scroll-behavior: smooth; }
 
   /* Bakgrunden andas långsamt */
@@ -240,13 +238,11 @@
   @keyframes fade-in { from { opacity: 0; transform: translateY(3px); } }
 
   /* Fokus och tryck */
-  .tile { transition: box-shadow .4s var(--smooth); }
-  .tile:focus-within { box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1.5px rgba(91,61,245,.35), 0 20px 44px -24px rgba(91,61,245,.45); }
-  .who { transition: box-shadow .3s var(--smooth), transform .3s var(--smooth); }
+  .tile { transition: box-shadow .5s var(--smooth); }
+  .tile:focus-within { box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px rgba(18,15,36,.09), 0 22px 48px -26px rgba(18,15,36,.38); }
+  .who { transition: box-shadow .3s var(--smooth), transform .4s var(--smooth); }
   .who:focus { transform: translateY(-1px); }
-  .goal:active, .mode:active { transform: scale(.98); }
-  .goal.on i { animation: pop .4s var(--spring); }
-  @keyframes pop { from { transform: scale(.4); } }
+  .goal:active, .mode:active { transform: scale(.97); }
   .cta:active { transform: scale(.97); box-shadow: 0 8px 18px -12px rgba(18,15,36,.6); }
   .cta[disabled] .go { animation: breathe 1s ease-in-out infinite; }
   @keyframes breathe { 50% { transform: scale(.88); opacity: .7; } }
@@ -264,20 +260,24 @@
   #live.on > .consent.out { animation: consent-out .35s var(--smooth) forwards; }
   @keyframes consent-out { to { opacity: 0; transform: translateY(-6px) scale(.98); max-height: 0; padding-top: 0; padding-bottom: 0; margin-bottom: -10px; } }
 
-  /* Förslagen och "tänker"-glöden */
+  /* Förslaget: orden tonar fram ett i taget */
+  #main .w { animation: word-in .6s var(--smooth) backwards; }
+  @keyframes word-in { from { opacity: 0; filter: blur(6px); } }
   #alts button { animation: rise-in .55s var(--smooth) backwards; }
   #alts button:nth-child(2) { animation-delay: .07s; }
-  .stagewrap { position: relative; flex: 1; min-height: 0; display: flex; }
-  .stagewrap .stage { flex: 1; }
-  .glow { position: absolute; inset: 0; border-radius: 22px; pointer-events: none; opacity: 0; transition: opacity .6s var(--smooth); }
-  .stage.thinking + .glow { opacity: 1; }
-  .glow::before, .glow::after { content: ""; position: absolute; inset: 0; border-radius: inherit;
-    background: conic-gradient(from var(--glow-a), #8B6CFF, #FF6A4D, #F5A524, #10B981, #5B3DF5, #8B6CFF);
-    animation: spin-glow 3.6s linear infinite; }
-  .glow::before { padding: 1.5px; -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor; mask-composite: exclude; }
-  .glow::after { z-index: -1; filter: blur(18px); opacity: .32; }
-  @keyframes spin-glow { to { --glow-a: 360deg; } }
+  .lat.flash { animation: fade-in .45s var(--smooth); }
+
+  /* Tänker: lugn violett andning runt kortet och skimrande etikett */
+  .stage { transition: box-shadow .6s var(--smooth); }
+  .stage.thinking { animation: breathe-ring 2.4s ease-in-out infinite; }
+  @keyframes breathe-ring {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px rgba(91,61,245,.2), 0 0 0 4px rgba(91,61,245,.04), 0 16px 40px -24px rgba(91,61,245,.35); }
+    50% { box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px rgba(91,61,245,.36), 0 0 0 6px rgba(91,61,245,.08), 0 18px 44px -22px rgba(91,61,245,.5); }
+  }
+  .stage.thinking .say-lbl span { color: transparent; -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg, var(--violet) 0%, var(--violet) 38%, #D6CCFF 50%, var(--violet) 62%, var(--violet) 100%);
+    background-size: 250% 100%; animation: shimmer 1.8s linear infinite; }
+  @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0% 0; } }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
@@ -333,6 +333,7 @@
           <h2>Mål<small>Vad är en vinst?</small></h2>
         </div>
         <div class="goals" id="goals">
+          <span class="thumb"></span>
           <button class="goal" type="button"><i></i>Sälja</button>
           <button class="goal" type="button"><i></i>Boka möte</button>
           <button class="goal" type="button"><i></i>Följa upp</button>
@@ -362,6 +363,7 @@
           <h2>Ljud<small>Ring via datorn (Teams, Meet, WhatsApp) med headset, så hörs motparten.</small></h2>
         </div>
         <div class="modes" id="modes" role="radiogroup" aria-label="Ring via">
+          <span class="thumb"></span>
           <button class="mode" type="button" data-mode="computer"><b>Dator</b><small>Teams, Meet, WhatsApp. Motparten hörs via datorns ljud.</small></button>
           <button class="mode" type="button" data-mode="phone"><b>Telefon på högtalare</b><small>Lägg telefonen nära datorns mikrofon. Allt hörs via mikrofonen.</small></button>
         </div>
@@ -394,14 +396,11 @@
     <button onclick="dismissConsent(this.parentElement)">Klart</button>
   </div>
 
-  <div class="stagewrap">
-    <section class="stage" id="stage">
-      <div class="say-lbl"><i></i>Säg det här</div>
-      <div id="main" class="wait">Väntar på att motparten pratar …</div>
-      <div id="alts"></div>
-    </section>
-    <div class="glow"></div>
-  </div>
+  <section class="stage" id="stage">
+    <div class="say-lbl"><i></i><span>Säg det här</span></div>
+    <div id="main" class="wait">Väntar på att motparten pratar …</div>
+    <div id="alts"></div>
+  </section>
 
   <div class="heard" id="heard"></div>
 
@@ -438,6 +437,17 @@ function setMode(m) {
   $("loopField").hidden = mode === "phone";
   $("micLbl").textContent = mode === "phone" ? "Mikrofon (hör hela samtalet)" : "Din mikrofon";
   $("audio").classList.toggle("one", mode === "phone");
+  moveThumb($("modes"));
+}
+
+// Den vita markeringen glider till valt alternativ (som en segmenterad kontroll på iOS).
+function moveThumb(group) {
+  const on = group.querySelector(".on"), t = group.querySelector(".thumb");
+  if (!on || !t || !on.offsetWidth) return;
+  t.style.width = on.offsetWidth + "px";
+  t.style.height = on.offsetHeight + "px";
+  t.style.transform = `translate(${on.offsetLeft}px, ${on.offsetTop}px)`;
+  if (!t.classList.contains("ready")) requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add("ready")));
 }
 document.querySelectorAll(".mode").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 setMode(mode);
@@ -445,9 +455,12 @@ setMode(mode);
 function setGoal(v) {
   goal = v;
   document.querySelectorAll(".goal").forEach(b => b.classList.toggle("on", b.textContent.trim() === v));
+  moveThumb($("goals"));
 }
 document.querySelectorAll(".goal").forEach(b => b.onclick = () => setGoal(b.textContent.trim()));
 setGoal(goal);
+const thumbRO = new ResizeObserver(es => es.forEach(e => moveThumb(e.target)));
+["goals", "modes"].forEach(id => thumbRO.observe($(id)));
 
 function fillSelect(el, items, sel) {
   el.innerHTML = "";
@@ -543,10 +556,7 @@ document.addEventListener("keydown", (e) => {
 function showSuggestion(text, fresh) {
   const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
   if (!lines.length) return;
-  const main = $("main");
-  main.classList.remove("wait");
-  if (fresh) { main.classList.remove("fresh"); void main.offsetWidth; main.classList.add("fresh"); }
-  main.textContent = lines[0];
+  setMain(lines[0], fresh);
   // Uppdatera alternativen på plats, så de bara animeras in första gången och inte flimrar under strömning.
   const alts = $("alts");
   const want = lines.slice(1, 3).map(l => l.replace(/^[-•*]\s*/, ""));
@@ -559,15 +569,47 @@ function showSuggestion(text, fresh) {
       const s = document.createElement("span");
       b.append(k, s);
       b.onclick = () => {
-        const sp = b.lastChild, cur = main.textContent;
-        main.textContent = sp.textContent; sp.textContent = cur;
-        main.classList.remove("fresh"); void main.offsetWidth; main.classList.add("fresh");
+        const sp = b.lastChild, cur = $("main").textContent;
+        setMain(sp.textContent, true);
+        sp.textContent = cur;
       };
       alts.appendChild(b);
     }
     b.lastChild.textContent = txt;
   });
 }
+
+// Huvudförslaget som ord-spann: bara nya ord tonar fram, ord som redan syns rörs inte.
+function setMain(text, all) {
+  const main = $("main");
+  const words = text.split(/\s+/).filter(Boolean);
+  const reset = all || main.classList.contains("wait");
+  if (reset) main.textContent = "";
+  main.classList.remove("wait");
+  const spans = [...main.querySelectorAll(".w")];
+  let i = 0;
+  while (i < spans.length && i < words.length) {
+    const old = spans[i].textContent;
+    if (old === words[i]) { i++; continue; }
+    // sista ordet växer medan det strömmar in ("må" -> "månaden"): uppdatera utan ny animation
+    if (i === spans.length - 1 && words[i].startsWith(old)) { spans[i].textContent = words[i]; i++; continue; }
+    break;
+  }
+  for (let j = spans.length - 1; j >= i; j--) {
+    const prev = spans[j].previousSibling;
+    if (prev && prev.nodeType === 3) prev.remove();
+    spans[j].remove();
+  }
+  for (let k = i; k < words.length; k++) {
+    if (main.childNodes.length) main.append(" ");
+    const s = document.createElement("span");
+    s.className = "w";
+    s.textContent = words[k];
+    s.style.animationDelay = Math.min((k - i) * 30, 360) + "ms";
+    main.append(s);
+  }
+}
+function flash(el) { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
 
 function dismissConsent(el) {
   el.classList.add("out");
@@ -606,6 +648,7 @@ function onEvent(e) {
       $("lat").innerHTML = `Svar på <b>${s.toFixed(1).replace(".", ",")} s</b>`;
       $("lat").title = "Tid från att motparten tystnade till första ordet";
       $("lat").classList.toggle("bad", s > 2.5);
+      flash($("lat"));
     }
   } else if (e.kind === "error") {
     $("stage").classList.remove("thinking");
