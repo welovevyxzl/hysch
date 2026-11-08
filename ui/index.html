@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viska</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAF8F5;
+    --ink: #120F24;
+    --ink-2: #4B4762;
+    --muted: #6B6780;
+    --faint: #8F8AA3;
+    --line: rgba(18,15,36,.07);
+    --field: rgba(18,15,36,.035);
+    --field-hover: rgba(18,15,36,.055);
+    --glass: rgba(255,255,255,.72);
+    --violet: #5B3DF5;
+    --violet-2: #8B6CFF;
+    --coral: #FF6A4D;
+    --mint: #10B981;
+    --amber: #F5A524;
+    --font: "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    --ease: cubic-bezier(.2,.8,.2,1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font); color: var(--ink); background: var(--bg);
+    -webkit-font-smoothing: antialiased; overflow: hidden; font-size: 14px; letter-spacing: -.005em;
+    user-select: none;
+  }
+  input, textarea, select, button { font: inherit; color: inherit; letter-spacing: inherit; }
+  input, textarea { user-select: text; }
+
+  /* Mjuk färgbakgrund (statisk) */
+  .aura { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .aura span { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; }
+  .aura .a { width: 520px; height: 420px; left: -160px; top: -180px; background: #C9BCFF; }
+  .aura .b { width: 460px; height: 380px; right: -140px; top: -140px; background: #FFD3C4; }
+  .aura .c { width: 520px; height: 360px; left: 30%; bottom: -240px; background: #BFF0DC; opacity: .45; }
+
+  /* Fönsterlist (ramlöst fönster) */
+  .titlebar { position: relative; z-index: 5; height: 44px; display: flex; align-items: center; padding: 0 8px 0 16px; gap: 10px; }
+  .titlebar .name { font-weight: 600; font-size: 13px; color: var(--ink-2); }
+  .mark { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center;
+    background: linear-gradient(140deg, var(--violet-2), var(--violet)); box-shadow: 0 4px 10px -4px rgba(91,61,245,.7); }
+  .winbtns { margin-left: auto; display: flex; gap: 2px; }
+  .winbtns button { width: 34px; height: 30px; border: 0; background: transparent; border-radius: 8px; cursor: pointer;
+    display: grid; place-items: center; color: var(--ink-2); transition: background .15s; }
+  .winbtns button:hover { background: rgba(18,15,36,.06); }
+  .winbtns button.x:hover { background: #E5484D; color: #fff; }
+
+  .view { display: none; position: relative; z-index: 1; height: calc(100% - 44px); }
+  .view.on { display: flex; flex-direction: column; }
+
+  /* ================= Formulär ================= */
+  #setup .content { flex: 1; overflow-y: auto; padding: 18px 36px 8px; }
+  #setup .content::-webkit-scrollbar { width: 12px; }
+  #setup .content::-webkit-scrollbar-thumb { background: rgba(18,15,36,.12); border-radius: 12px; border: 4px solid transparent; background-clip: padding-box; }
+
+  .hero { margin-bottom: 22px; }
+  .hero h1 { font-size: 40px; line-height: 1.05; font-weight: 600; letter-spacing: -.035em; }
+  .hero h1 em { font-style: normal; color: var(--violet); }
+  .hero p { color: var(--ink-2); font-size: 15px; margin-top: 10px; }
+  .who {
+    margin-top: 22px; width: 100%; border: 0; outline: none; background: var(--glass);
+    backdrop-filter: blur(20px); border-radius: 18px; padding: 18px 20px; font-size: 20px; font-weight: 500;
+    box-shadow: 0 0 0 1px var(--line), 0 10px 30px -18px rgba(18,15,36,.25); transition: box-shadow .2s var(--ease);
+  }
+  .who::placeholder { color: var(--faint); font-weight: 400; }
+  .who:focus { box-shadow: 0 0 0 2px var(--violet), 0 12px 34px -16px rgba(91,61,245,.4); }
+
+  .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .tile {
+    background: var(--glass); backdrop-filter: blur(20px) saturate(140%); border-radius: 22px; padding: 18px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px var(--line), 0 12px 32px -22px rgba(18,15,36,.3);
+    display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  }
+  .span2 { grid-column: span 2; } .span3 { grid-column: span 3; }
+  .tile-head { display: flex; align-items: center; gap: 10px; }
+  .ico { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+  .ico.v { background: #EEEAFF; color: var(--violet); }
+  .ico.c { background: #FFECE7; color: #E24E30; }
+  .ico.m { background: #E3F8EF; color: #0A9467; }
+  .ico.a { background: #FFF3DC; color: #B87400; }
+  .tile h2 { font-size: 14px; font-weight: 600; }
+  .tile h2 small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 1px; }
+
+  .f { width: 100%; border: 0; outline: none; background: var(--field); border-radius: 12px; padding: 11px 13px;
+    font-size: 14px; line-height: 1.5; transition: background .15s, box-shadow .15s; }
+  .f:hover { background: var(--field-hover); }
+  .f:focus { background: #fff; box-shadow: 0 0 0 2px var(--violet); }
+  .f::placeholder { color: var(--faint); }
+  textarea.f { resize: none; flex: 1; min-height: 64px; }
+  select.f { appearance: none; cursor: pointer; padding-right: 34px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238D89A0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; }
+  .pair { display: grid; grid-template-columns: 1fr 180px; gap: 10px; flex: 1; }
+  .pair textarea.f { height: 100%; }
+  .ibtn.sq { width: 36px; padding: 0; justify-content: center; }
+  .sub { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 6px; display: block; }
+
+  .goals { display: flex; flex-direction: column; gap: 6px; }
+  .goal { display: flex; align-items: center; gap: 10px; border: 0; background: var(--field); border-radius: 12px;
+    padding: 10px 12px; cursor: pointer; font-weight: 500; text-align: left; transition: all .18s var(--ease); }
+  .goal:hover { background: var(--field-hover); }
+  .goal i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--faint); flex: none; transition: all .18s var(--ease); }
+  .goal.on { background: var(--ink); color: #fff; }
+  .goal.on i { box-shadow: inset 0 0 0 5px #fff; }
+
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+  .mode { border: 0; text-align: left; cursor: pointer; background: var(--field); border-radius: 14px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 3px; transition: all .18s var(--ease); }
+  .mode b { font-size: 14px; font-weight: 600; }
+  .mode small { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .mode:hover { background: var(--field-hover); }
+  .mode.on { background: var(--ink); color: #fff; }
+  .mode.on small { color: rgba(255,255,255,.7); }
+  .audio { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .audio.one { grid-template-columns: 1fr; }
+  .audio.k3 { grid-template-columns: 1fr 1fr 1fr; }
+  .note { font-size: 12.5px; color: var(--muted); }
+
+  .footer { display: flex; align-items: center; gap: 16px; padding: 14px 36px 22px; }
+  .gdpr { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); max-width: 420px; line-height: 1.4; }
+  .gdpr .ico { width: 28px; height: 28px; }
+  .err { color: #D93A1F; font-size: 13px; font-weight: 500; }
+  .cta { margin-left: auto; border: 0; cursor: pointer; display: flex; align-items: center; gap: 12px;
+    background: var(--ink); color: #fff; border-radius: 999px; padding: 8px 8px 8px 24px; font-size: 15px; font-weight: 600;
+    box-shadow: 0 14px 30px -14px rgba(18,15,36,.6); transition: transform .2s var(--ease), box-shadow .2s var(--ease); }
+  .cta .go { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+    background: linear-gradient(140deg, var(--violet-2), var(--violet)); transition: transform .25s var(--ease); }
+  .cta:hover { transform: translateY(-1px); box-shadow: 0 18px 36px -14px rgba(18,15,36,.65); }
+  .cta:hover .go { transform: translateX(3px); }
+  .cta[disabled] { opacity: .6; cursor: default; transform: none; }
+  .kbd { font-size: 11px; color: rgba(255,255,255,.55); font-weight: 500; }
+
+  /* ================= Live ================= */
+  #live { padding: 0 14px 14px; gap: 10px; }
+  body.is-live .titlebar { height: 40px; }
+  body.is-live .view { height: calc(100% - 40px); }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; }
+  .status .t { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); animation: ping 2s infinite; }
+  body.paused .live-dot { background: var(--faint); animation: none; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.5); } 80%,100% { box-shadow: 0 0 0 7px rgba(16,185,129,0); } }
+
+  .voices { display: flex; gap: 6px; margin-left: 12px; }
+  .voice { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 6px; border-radius: 999px; background: rgba(18,15,36,.04); font-size: 11.5px; font-weight: 500; color: var(--muted); transition: all .2s; }
+  .voice .bars { display: flex; gap: 2px; align-items: center; height: 12px; }
+  .voice .bars b { width: 2.5px; border-radius: 2px; height: 12px; transform: scaleY(.25); background: var(--faint); transition: transform .1s; }
+  .voice.you.on { color: #0A7A56; background: #E3F8EF; } .voice.you.on .bars b { background: var(--mint); }
+  .voice.them.on { color: #C23D22; background: #FFECE7; } .voice.them.on .bars b { background: var(--coral); }
+
+  .consent { display: flex; align-items: center; gap: 8px; background: #FFF6E0; color: #6B5210; border-radius: 12px; padding: 8px 10px 8px 12px; font-size: 12.5px; }
+  .consent b { font-weight: 600; }
+  .consent button { margin-left: auto; border: 0; background: rgba(107,82,16,.1); color: #6B5210; border-radius: 8px; padding: 3px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+  .stage { flex: 1; min-height: 0; background: var(--glass); backdrop-filter: blur(20px) saturate(140%); border-radius: 22px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px var(--line), 0 16px 40px -24px rgba(18,15,36,.35);
+    padding: 16px 18px; display: flex; flex-direction: column; overflow-y: auto; }
+  .stage::-webkit-scrollbar { width: 0; }
+  .say-lbl { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--violet); margin-bottom: 8px; }
+  .say-lbl i { width: 6px; height: 6px; border-radius: 50%; background: var(--violet); }
+  .stage.thinking .say-lbl i { animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .2; } }
+  #main { font-size: 25px; line-height: 1.25; font-weight: 600; letter-spacing: -.025em; flex: none; text-wrap: pretty; }
+  #main.wait { color: var(--faint); font-weight: 500; font-size: 19px; }
+  #main.fresh { animation: rise .35s var(--ease); }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); filter: blur(2px); } to { opacity: 1; transform: none; filter: none; } }
+  #alts { margin-top: auto; padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  #alts button { display: flex; gap: 10px; align-items: flex-start; text-align: left; border: 0; background: var(--field);
+    border-radius: 12px; padding: 8px 10px; font-size: 13.5px; line-height: 1.4; color: var(--ink-2); cursor: pointer; transition: all .15s; }
+  #alts button:hover { background: #EEEAFF; color: var(--ink); }
+  #alts kbd { font: 600 11px var(--font); min-width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; flex: none; margin-top: 1px;
+    background: #fff; color: var(--muted); box-shadow: 0 0 0 1px var(--line), 0 1px 0 var(--line); }
+
+  .heard { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; min-height: 17px; }
+  .heard b { font-weight: 600; color: var(--ink-2); }
+  .dock { display: flex; align-items: center; gap: 6px; }
+  .ptt { flex: none; height: 54px; border: 0; border-radius: 16px; cursor: pointer; touch-action: none;
+    display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 15px; font-weight: 600;
+    background: #FFECE7; color: #B23A20; box-shadow: 0 0 0 1.5px rgba(226,78,48,.25) inset; transition: background .12s, transform .12s; }
+  .ptt:hover { background: #FFE2DA; }
+  .ptt kbd { font: 600 11px var(--font); padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.75); color: #B23A20; }
+  .ptt.on { background: var(--coral); color: #fff; transform: scale(.985); box-shadow: 0 10px 22px -12px rgba(255,106,77,.9); }
+  .ptt.on kbd { background: rgba(255,255,255,.25); color: #fff; }
+  .lat { font-size: 12px; color: var(--muted); padding-left: 4px; margin-right: auto; font-variant-numeric: tabular-nums; }
+  .lat.bad { color: #D93A1F; }
+  .lat b { color: var(--ink); font-weight: 600; }
+  .ibtn { height: 36px; border: 0; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 7px; padding: 0 12px;
+    background: rgba(255,255,255,.8); box-shadow: 0 0 0 1px var(--line); font-size: 13px; font-weight: 600; color: var(--ink-2); transition: all .15s; }
+  .ibtn:hover { background: #fff; color: var(--ink); }
+  .ibtn.main { background: var(--ink); color: #fff; box-shadow: 0 8px 18px -10px rgba(18,15,36,.7); }
+  .ibtn.main:hover { background: #2A2545; }
+  .ibtn.end:hover { background: #FDECEC; color: #D93A1F; }
+</style>
+</head>
+<body>
+<div class="aura"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+
+<header class="titlebar pywebview-drag-region">
+  <div class="mark"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg></div>
+  <span class="name" id="appName">Viska</span>
+  <div class="status" id="status" hidden>
+    <span class="live-dot"></span><span id="state">Lyssnar</span><span class="t" id="clock">00:00</span>
+  </div>
+  <div class="voices" id="voices" hidden>
+    <span class="voice you" id="vYou"><span class="bars"><b></b><b></b><b></b></span>Du</span>
+    <span class="voice them" id="vThem"><span class="bars"><b></b><b></b><b></b></span><span id="vThemLbl">Motpart</span></span>
+  </div>
+  <div class="winbtns">
+    <button title="Minimera" onclick="pywebview.api.minimize()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+    <button class="x" title="Stäng" onclick="pywebview.api.close()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+</header>
+
+<!-- ================= Startformulär ================= -->
+<main id="setup" class="view on">
+  <div class="content">
+    <div class="hero">
+      <h1>Vem ringer du <em>idag?</em></h1>
+      <p>Fyll i en gång. Allt sparas till nästa samtal.</p>
+      <input class="who" id="who" type="text" placeholder="Anna Berg, rektor på Solskolan" autocomplete="off">
+    </div>
+
+    <div class="bento">
+      <section class="tile span2">
+        <div class="tile-head">
+          <span class="ico v"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span>
+          <h2>Erbjudandet<small>Vad du säljer och vad det kostar</small></h2>
+        </div>
+        <div class="pair">
+          <textarea class="f" id="product" rows="2" placeholder="Pluggkompis: AI-studiecoach för högstadieelever"></textarea>
+          <div>
+            <span class="sub">Pris</span>
+            <input class="f" id="price" type="text" placeholder="49 kr/elev/mån">
+          </div>
+        </div>
+      </section>
+
+      <section class="tile">
+        <div class="tile-head">
+          <span class="ico m"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></span>
+          <h2>Mål<small>Vad är en vinst?</small></h2>
+        </div>
+        <div class="goals" id="goals">
+          <button class="goal" type="button"><i></i>Sälja</button>
+          <button class="goal" type="button"><i></i>Boka möte</button>
+          <button class="goal" type="button"><i></i>Följa upp</button>
+          <button class="goal" type="button"><i></i>Annat</button>
+        </div>
+      </section>
+
+      <section class="tile span2">
+        <div class="tile-head">
+          <span class="ico c"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg></span>
+          <h2>Dina bästa argument<small>Ett per rad. Coachen använder dem när det passar.</small></h2>
+        </div>
+        <textarea class="f" id="args" rows="4" placeholder="Eleverna pluggar mer på egen hand&#10;Lärarna sparar tid på läxhjälp&#10;Gratis i 30 dagar"></textarea>
+      </section>
+
+      <section class="tile">
+        <div class="tile-head">
+          <span class="ico a"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg></span>
+          <h2>Invändningar<small>Och hur du vill bemöta dem</small></h2>
+        </div>
+        <textarea class="f" id="notes" rows="4" placeholder="&quot;Ingen budget&quot; → pilot med en klass"></textarea>
+      </section>
+
+      <section class="tile span3">
+        <div class="tile-head">
+          <span class="ico v"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></svg></span>
+          <h2>Ljud<small>Ring via datorn (Teams, Meet, WhatsApp) med headset, så hörs motparten.</small></h2>
+        </div>
+        <div class="modes" id="modes" role="radiogroup" aria-label="Ring via">
+          <button class="mode" type="button" data-mode="computer"><b>Dator</b><small>Teams, Meet, WhatsApp. Motparten hörs via datorns ljud.</small></button>
+          <button class="mode" type="button" data-mode="phone"><b>Telefon på högtalare</b><small>Lägg telefonen nära datorns mikrofon. Allt hörs via mikrofonen.</small></button>
+        </div>
+        <div class="audio" id="audio">
+          <div><span class="sub" id="micLbl">Din mikrofon</span><select class="f" id="mic"></select></div>
+          <div id="loopField"><span class="sub">Samtalsljud</span><select class="f" id="loop"></select></div>
+          <div id="keyField" hidden><span class="sub">OpenAI API-nyckel</span><input class="f" id="key" type="password" placeholder="sk-..." autocomplete="off"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="gdpr" id="gdpr">
+      <span class="ico a"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg></span>
+      <span>Säg i början att samtalet transkriberas med AI. GDPR kräver det.</span>
+    </div>
+    <span class="err" id="err"></span>
+    <button class="cta" id="startBtn">
+      <span>Starta samtal <span class="kbd">Ctrl ↵</span></span>
+      <span class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+    </button>
+  </footer>
+</main>
+
+<!-- ================= Live-läge ================= -->
+<main id="live" class="view">
+  <div class="consent" id="consent">
+    <span>Säg först: <b>"Samtalet transkriberas med AI, okej?"</b></span>
+    <button onclick="this.parentElement.remove()">Klart</button>
+  </div>
+
+  <section class="stage" id="stage">
+    <div class="say-lbl"><i></i>Säg det här</div>
+    <div id="main" class="wait">Väntar på att motparten pratar …</div>
+    <div id="alts"></div>
+  </section>
+
+  <div class="heard" id="heard"></div>
+
+  <button class="ptt" id="pttBtn" hidden type="button">
+    <span id="pttTxt">Håll in medan de pratar</span><kbd>Mellanslag</kbd>
+  </button>
+
+  <div class="dock">
+    <span class="lat" id="lat"></span>
+    <button class="ibtn sq" id="pauseBtn" title="Pausa förslag (P)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>
+    </button>
+    <button class="ibtn main" id="forceBtn" title="Nytt förslag (N)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Nytt förslag
+    </button>
+    <button class="ibtn end" id="stopBtn" title="Avsluta samtalet">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>Avsluta
+    </button>
+  </div>
+</main>
+
+<script>
+window.__errs = [];
+window.addEventListener("error", (e) => window.__errs.push(String(e.message) + " @" + e.lineno));
+window.addEventListener("unhandledrejection", (e) => window.__errs.push("promise: " + String(e.reason)));
+const $ = (id) => document.getElementById(id);
+const FIELDS = ["who", "product", "price", "args", "notes"];
+let goal = "Boka möte", paused = false, live = false, t0 = 0, clockTimer = null, streaming = false;
+
+let mode = "computer";
+function setMode(m) {
+  mode = m === "phone" ? "phone" : "computer";
+  document.querySelectorAll(".mode").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  $("loopField").hidden = mode === "phone";
+  $("micLbl").textContent = mode === "phone" ? "Mikrofon (hör hela samtalet)" : "Din mikrofon";
+  $("audio").classList.toggle("one", mode === "phone");
+}
+document.querySelectorAll(".mode").forEach(b => b.onclick = () => setMode(b.dataset.mode));
+setMode(mode);
+
+function setGoal(v) {
+  goal = v;
+  document.querySelectorAll(".goal").forEach(b => b.classList.toggle("on", b.textContent.trim() === v));
+}
+document.querySelectorAll(".goal").forEach(b => b.onclick = () => setGoal(b.textContent.trim()));
+setGoal(goal);
+
+function fillSelect(el, items, sel) {
+  el.innerHTML = "";
+  items.forEach(n => { const o = document.createElement("option"); o.textContent = n; o.value = n; el.appendChild(o); });
+  el.value = sel;
+}
+function collect() {
+  const form = { goal };
+  FIELDS.forEach(f => form[f] = $(f).value.trim());
+  return { form, mode, mic: $("mic").value, loop: $("loop").value, key: $("key").value.trim() };
+}
+
+let booted = false, ready = null;
+function boot() {
+  if (booted || !(window.pywebview && pywebview.api && pywebview.api.init)) return ready;
+  booted = true;
+  ready = load();
+  return ready;
+}
+async function load() {
+  const s = await pywebview.api.init();
+  FIELDS.forEach(f => $(f).value = s.form[f] || "");
+  setGoal(s.form.goal || "Boka möte");
+  setMode(s.mode);
+  fillSelect($("mic"), s.mics, s.mic);
+  fillSelect($("loop"), s.loops, s.loop);
+  if (s.needKey) {
+    $("keyField").hidden = false;
+    $("audio").classList.add("k3");
+    if (s.hasSavedKey) $("key").placeholder = "Sparad, lämna tomt";
+  }
+}
+window.addEventListener("pywebviewready", boot);
+boot();
+
+function enterLive() {
+  live = true; paused = false;
+  document.body.classList.add("is-live");
+  document.body.classList.remove("paused");
+  $("setup").classList.remove("on"); $("live").classList.add("on");
+  $("appName").hidden = true; $("status").hidden = false; $("voices").hidden = false;
+  $("vYou").hidden = mode === "phone";
+  $("vThemLbl").textContent = mode === "phone" ? "Samtal" : "Motpart";
+  $("pttBtn").hidden = mode !== "phone";
+  t0 = Date.now();
+  clockTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    $("clock").textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  }, 500);
+}
+function exitLive() {
+  live = false; clearInterval(clockTimer);
+  document.body.classList.remove("is-live", "paused");
+  $("live").classList.remove("on"); $("setup").classList.add("on");
+  $("appName").hidden = false; $("status").hidden = true; $("voices").hidden = true;
+}
+
+async function start() {
+  if (!ready) { $("err").textContent = "Laddar, försök igen om en sekund."; return; }
+  await ready;  // spara aldrig ett halvladdat (tomt) formulär
+  $("err").textContent = "";
+  $("startBtn").disabled = true;
+  const r = await pywebview.api.start(collect());
+  $("startBtn").disabled = false;
+  if (!r.ok) { $("err").textContent = r.error; return; }
+  enterLive();
+}
+$("startBtn").onclick = start;
+$("stopBtn").onclick = async () => { await pywebview.api.stop(); exitLive(); };
+async function togglePause() {
+  paused = await pywebview.api.pause(!paused);
+  $("pauseBtn").innerHTML = paused
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5Z"/></svg>'
+    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
+  $("pauseBtn").title = paused ? "Fortsätt (P)" : "Pausa förslag (P)";
+  $("state").textContent = paused ? "Pausad" : "Lyssnar";
+  document.body.classList.toggle("paused", paused);
+}
+$("pauseBtn").onclick = togglePause;
+function force() { $("stage").classList.add("thinking"); pywebview.api.force(); }
+$("forceBtn").onclick = force;
+
+document.addEventListener("keydown", (e) => {
+  if (!live && e.ctrlKey && e.key === "Enter") { start(); return; }
+  if (!live || e.target.matches("input, textarea")) return;
+  if (e.code === "Space") { e.preventDefault(); if (!e.repeat) pttDown(); return; }
+  const k = e.key.toLowerCase();
+  if (k === "n") force();
+  else if (k === "p") togglePause();
+  else if (k === "1" || k === "2") { const b = $("alts").children[+k - 1]; if (b) b.click(); }
+});
+
+function showSuggestion(text, fresh) {
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  const main = $("main");
+  main.classList.remove("wait");
+  if (fresh) { main.classList.remove("fresh"); void main.offsetWidth; main.classList.add("fresh"); }
+  main.textContent = lines[0];
+  const alts = $("alts");
+  alts.innerHTML = "";
+  lines.slice(1, 3).forEach((l, i) => {
+    const b = document.createElement("button");
+    const k = document.createElement("kbd"); k.textContent = i + 1;
+    const s = document.createElement("span"); s.textContent = l.replace(/^[-•*]\s*/, "");
+    b.append(k, s);
+    b.onclick = () => {
+      const cur = main.textContent;
+      main.textContent = s.textContent; s.textContent = cur;
+      main.classList.remove("fresh"); void main.offsetWidth; main.classList.add("fresh");
+    };
+    alts.appendChild(b);
+  });
+}
+
+function setBars(el, v) {
+  el.classList.toggle("on", v > 0.02);
+  const bs = el.querySelectorAll(".bars b");
+  [0.6, 1, 0.75].forEach((m, i) => bs[i].style.transform = "scaleY(" + (0.25 + Math.min(1, v * m * 1.6) * 0.75) + ")");
+}
+
+function onEvent(e) {
+  if (e.kind === "levels") {
+    setBars($("vYou"), e.data["Du"] || 0);
+    setBars($("vThem"), e.data["Motpart"] || e.data["Samtal"] || 0);
+  } else if (e.kind === "skip") {
+    $("stage").classList.remove("thinking");   // AI:n bedömde att det var du som pratade
+    $("lat").textContent = "Det var du som pratade. Behåller förra förslaget.";
+    $("lat").classList.remove("bad");
+  } else if (e.kind === "partial" || e.kind === "final") {
+    const b = document.createElement("b"); b.textContent = e.who + ": ";
+    $("heard").replaceChildren(b, String(e.data).slice(-180));
+    if (e.kind === "final" && (e.who === "Motpart" || e.who === "Samtal") && !paused) $("stage").classList.add("thinking");
+  } else if (e.kind === "suggestion") {
+    showSuggestion(e.data.text, !streaming);
+    streaming = !e.data.lat;
+    if (e.data.lat) {
+      $("stage").classList.remove("thinking");
+      const s = e.data.lat.forsta_ord;
+      $("lat").innerHTML = `Svar på <b>${s.toFixed(1).replace(".", ",")} s</b>`;
+      $("lat").title = "Tid från att motparten tystnade till första ordet";
+      $("lat").classList.toggle("bad", s > 2.5);
+    }
+  } else if (e.kind === "error") {
+    $("stage").classList.remove("thinking");
+    $("lat").textContent = `${e.who}: ${e.data}`.slice(0, 90);
+    $("lat").title = `${e.who}: ${e.data}`;
+    $("lat").classList.add("bad");
+  }
+}
+
+// ---- Håll-knapp (telefonläge): håll medan motparten pratar ----
+let held = false;
+function pttDown() {
+  if (held || mode !== "phone" || !live) return;
+  held = true;
+  $("pttBtn").classList.add("on");
+  $("pttTxt").textContent = "Lyssnar på motparten … släpp när de är klara";
+  pywebview.api.ptt(true);
+}
+function pttUp() {
+  if (!held) return;
+  held = false;
+  $("pttBtn").classList.remove("on");
+  $("pttTxt").textContent = "Håll in medan de pratar";
+  $("stage").classList.add("thinking");
+  pywebview.api.ptt(false);
+}
+$("pttBtn").addEventListener("pointerdown", (e) => { e.preventDefault(); $("pttBtn").setPointerCapture(e.pointerId); pttDown(); });
+$("pttBtn").addEventListener("pointerup", pttUp);
+$("pttBtn").addEventListener("pointercancel", pttUp);
+$("pttBtn").addEventListener("lostpointercapture", pttUp);
+document.addEventListener("keyup", (e) => { if (e.code === "Space") { e.preventDefault(); pttUp(); } });
+window.addEventListener("blur", pttUp);   // tappar fönstret fokus mitt i: släpp
+</script>
+</body>
+</html>

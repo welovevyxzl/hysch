@@ -1,0 +1,8 @@
+﻿.venv/
+build/
+dist/
+*.spec
+config.json
+.env
+__pycache__/
+.impeccable/hook.cache.json
