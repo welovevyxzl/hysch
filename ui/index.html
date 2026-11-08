@@ -199,6 +199,89 @@
   .ibtn.main { background: var(--ink); color: #fff; box-shadow: 0 8px 18px -10px rgba(18,15,36,.7); }
   .ibtn.main:hover { background: #2A2545; }
   .ibtn.end:hover { background: #FDECEC; color: #D93A1F; }
+
+  /* ================= Motion ================= */
+  :root { --spring: cubic-bezier(.34,1.5,.64,1); --smooth: cubic-bezier(.22,1,.36,1); }
+  @property --glow-a { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+  .content { scroll-behavior: smooth; }
+
+  /* Bakgrunden andas långsamt */
+  .aura span { will-change: transform; }
+  .aura .a { animation: drift-a 28s ease-in-out infinite alternate; }
+  .aura .b { animation: drift-b 34s ease-in-out infinite alternate; }
+  .aura .c { animation: drift-c 40s ease-in-out infinite alternate; }
+  @keyframes drift-a { to { transform: translate3d(90px, 60px, 0) scale(1.15); } }
+  @keyframes drift-b { to { transform: translate3d(-80px, 70px, 0) scale(1.1); } }
+  @keyframes drift-c { to { transform: translate3d(60px, -50px, 0) scale(1.18); } }
+
+  /* Byte mellan formulär och live */
+  .view.on { animation: view-in .5s var(--smooth) backwards; }
+  @keyframes view-in { from { opacity: 0; transform: scale(.985); } }
+  @keyframes rise-in { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+
+  #setup.on .hero h1 { animation: rise-in .8s var(--smooth) .04s backwards; }
+  #setup.on .hero p { animation: rise-in .8s var(--smooth) .10s backwards; }
+  #setup.on .who { animation: rise-in .8s var(--smooth) .16s backwards; }
+  #setup.on .tile { animation: rise-in .8s var(--smooth) backwards; }
+  #setup.on .tile:nth-child(1) { animation-delay: .22s; }
+  #setup.on .tile:nth-child(2) { animation-delay: .28s; }
+  #setup.on .tile:nth-child(3) { animation-delay: .34s; }
+  #setup.on .tile:nth-child(4) { animation-delay: .40s; }
+  #setup.on .tile:nth-child(5) { animation-delay: .46s; }
+  #setup.on .footer { animation: rise-in .8s var(--smooth) .52s backwards; }
+
+  #live.on > * { animation: rise-in .65s var(--smooth) backwards; }
+  #live.on > :nth-child(2) { animation-delay: .06s; }
+  #live.on > :nth-child(3) { animation-delay: .12s; }
+  #live.on > :nth-child(4) { animation-delay: .16s; }
+  #live.on > :nth-child(5) { animation-delay: .20s; }
+
+  .status:not([hidden]), .voices:not([hidden]) { animation: fade-in .5s var(--smooth) .1s backwards; }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(3px); } }
+
+  /* Fokus och tryck */
+  .tile { transition: box-shadow .4s var(--smooth); }
+  .tile:focus-within { box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1.5px rgba(91,61,245,.35), 0 20px 44px -24px rgba(91,61,245,.45); }
+  .who { transition: box-shadow .3s var(--smooth), transform .3s var(--smooth); }
+  .who:focus { transform: translateY(-1px); }
+  .goal:active, .mode:active { transform: scale(.98); }
+  .goal.on i { animation: pop .4s var(--spring); }
+  @keyframes pop { from { transform: scale(.4); } }
+  .cta:active { transform: scale(.97); box-shadow: 0 8px 18px -12px rgba(18,15,36,.6); }
+  .cta[disabled] .go { animation: breathe 1s ease-in-out infinite; }
+  @keyframes breathe { 50% { transform: scale(.88); opacity: .7; } }
+  .ibtn, #alts button, .winbtns button, .consent button { transition: background .2s var(--smooth), color .2s var(--smooth), box-shadow .2s var(--smooth), transform .2s var(--spring); }
+  .ibtn:active { transform: scale(.94); }
+  #alts button:hover { transform: translateX(2px); }
+  #alts button:active { transform: scale(.985); }
+  .winbtns button:active { transform: scale(.9); }
+  .ptt { transition: background .2s var(--smooth), transform .25s var(--spring), box-shadow .25s var(--smooth); }
+  .err.shake { animation: shake .45s var(--smooth); }
+  @keyframes shake { 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+
+  /* Medgivande-rutan glider ut */
+  .consent { max-height: 60px; overflow: hidden; }
+  #live.on > .consent.out { animation: consent-out .35s var(--smooth) forwards; }
+  @keyframes consent-out { to { opacity: 0; transform: translateY(-6px) scale(.98); max-height: 0; padding-top: 0; padding-bottom: 0; margin-bottom: -10px; } }
+
+  /* Förslagen och "tänker"-glöden */
+  #alts button { animation: rise-in .55s var(--smooth) backwards; }
+  #alts button:nth-child(2) { animation-delay: .07s; }
+  .stagewrap { position: relative; flex: 1; min-height: 0; display: flex; }
+  .stagewrap .stage { flex: 1; }
+  .glow { position: absolute; inset: 0; border-radius: 22px; pointer-events: none; opacity: 0; transition: opacity .6s var(--smooth); }
+  .stage.thinking + .glow { opacity: 1; }
+  .glow::before, .glow::after { content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: conic-gradient(from var(--glow-a), #8B6CFF, #FF6A4D, #F5A524, #10B981, #5B3DF5, #8B6CFF);
+    animation: spin-glow 3.6s linear infinite; }
+  .glow::before { padding: 1.5px; -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; }
+  .glow::after { z-index: -1; filter: blur(18px); opacity: .32; }
+  @keyframes spin-glow { to { --glow-a: 360deg; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  }
 </style>
 </head>
 <body>
@@ -308,14 +391,17 @@
 <main id="live" class="view">
   <div class="consent" id="consent">
     <span>Säg först: <b>"Samtalet transkriberas med AI, okej?"</b></span>
-    <button onclick="this.parentElement.remove()">Klart</button>
+    <button onclick="dismissConsent(this.parentElement)">Klart</button>
   </div>
 
-  <section class="stage" id="stage">
-    <div class="say-lbl"><i></i>Säg det här</div>
-    <div id="main" class="wait">Väntar på att motparten pratar …</div>
-    <div id="alts"></div>
-  </section>
+  <div class="stagewrap">
+    <section class="stage" id="stage">
+      <div class="say-lbl"><i></i>Säg det här</div>
+      <div id="main" class="wait">Väntar på att motparten pratar …</div>
+      <div id="alts"></div>
+    </section>
+    <div class="glow"></div>
+  </div>
 
   <div class="heard" id="heard"></div>
 
@@ -426,7 +512,7 @@ async function start() {
   $("startBtn").disabled = true;
   const r = await pywebview.api.start(collect());
   $("startBtn").disabled = false;
-  if (!r.ok) { $("err").textContent = r.error; return; }
+  if (!r.ok) { showErr(r.error); return; }
   enterLive();
 }
 $("startBtn").onclick = start;
@@ -461,20 +547,36 @@ function showSuggestion(text, fresh) {
   main.classList.remove("wait");
   if (fresh) { main.classList.remove("fresh"); void main.offsetWidth; main.classList.add("fresh"); }
   main.textContent = lines[0];
+  // Uppdatera alternativen på plats, så de bara animeras in första gången och inte flimrar under strömning.
   const alts = $("alts");
-  alts.innerHTML = "";
-  lines.slice(1, 3).forEach((l, i) => {
-    const b = document.createElement("button");
-    const k = document.createElement("kbd"); k.textContent = i + 1;
-    const s = document.createElement("span"); s.textContent = l.replace(/^[-•*]\s*/, "");
-    b.append(k, s);
-    b.onclick = () => {
-      const cur = main.textContent;
-      main.textContent = s.textContent; s.textContent = cur;
-      main.classList.remove("fresh"); void main.offsetWidth; main.classList.add("fresh");
-    };
-    alts.appendChild(b);
+  const want = lines.slice(1, 3).map(l => l.replace(/^[-•*]\s*/, ""));
+  while (alts.children.length > want.length) alts.lastChild.remove();
+  want.forEach((txt, i) => {
+    let b = alts.children[i];
+    if (!b) {
+      b = document.createElement("button");
+      const k = document.createElement("kbd"); k.textContent = i + 1;
+      const s = document.createElement("span");
+      b.append(k, s);
+      b.onclick = () => {
+        const sp = b.lastChild, cur = main.textContent;
+        main.textContent = sp.textContent; sp.textContent = cur;
+        main.classList.remove("fresh"); void main.offsetWidth; main.classList.add("fresh");
+      };
+      alts.appendChild(b);
+    }
+    b.lastChild.textContent = txt;
   });
+}
+
+function dismissConsent(el) {
+  el.classList.add("out");
+  setTimeout(() => el.remove(), 380);
+}
+function showErr(msg) {
+  const e = $("err");
+  e.textContent = msg;
+  e.classList.remove("shake"); void e.offsetWidth; e.classList.add("shake");
 }
 
 function setBars(el, v) {
