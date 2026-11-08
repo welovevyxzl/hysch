@@ -31,6 +31,9 @@ SETUP_W, SETUP_H = 900, 760
 DELAY = "high"             # noggrannare tal-till-text (mer ljudkontext), lite långsammare
 EARLY = False             # vänta på färdig text i stället för halvfärdig
 PREROLL = 0.3                # sekunder ljud före talstart som skickas med
+MIN_COMMIT = 0.12            # s: kortare ljud vägrar servern ("buffer too small", minst 100 ms)
+CHUNK_SOFT = 5.0             # s: långa repliker skickas i bitar, vid nästa lilla paus efter så här länge
+CHUNK_HARD = 9.0             # s: ... och senast här, så texten syns medan någon pratar länge
 
 CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
@@ -158,8 +161,16 @@ class Source:
         self.appended = False
         self.noise = 150.0
         self.preroll: list[np.ndarray] = []
-        self.commit_times: list[tuple[float, str]] = []   # (tal slut, talare) per commit
+        # Skickade commits i ordning: {"id", "t" (tal slut), "who", "interim", "after_chunks"}.
+        # Varje commit har ett eget event_id, så en commit som servern vägrar kan plockas bort
+        # i stället för att förskjuta talarna för resten av samtalet.
+        self.commit_times: list[dict] = []
+        self.blk = threading.RLock()     # skyddar ljudbufferten och commit-kön
+        self.buf_secs = 0.0              # sekunder ljud sedan senaste commit
+        self.n_commit = 0
+        self.turn_chunks = 0             # delbitar skickade i pågående replik
         self.item_label: dict[str, str] = {}
+        self.item_meta: dict[str, dict] = {}
         self.ptt = False    # håll-knapp: hålls = motparten pratar, annars = du
         self.held = False
         self.item_end: dict[str, float] = {}
@@ -199,14 +210,38 @@ class Source:
 
     def _append(self, x: np.ndarray):
         pcm = np.clip(x, -32768, 32767).astype("<i2").tobytes()
-        self._send({"type": "input_audio_buffer.append", "audio": base64.b64encode(pcm).decode()})
-        self.appended = True
+        with self.blk:
+            self._send({"type": "input_audio_buffer.append", "audio": base64.b64encode(pcm).decode()})
+            self.appended = True
+            self.buf_secs += len(x) / RATE
 
-    def _commit(self, label=None, t_end=None):
-        if self.appended:
-            self.appended = False
-            self.commit_times.append((t_end or self.last_voice or time.perf_counter(), label or self.label))
-            self._send({"type": "input_audio_buffer.commit"})
+    def _commit(self, label=None, t_end=None, interim=False):
+        """Skicka ljudet hittills för transkribering.
+        interim=True: en delbit mitt i en lång replik (coachen svarar inte på den)."""
+        with self.blk:
+            if not self.appended:
+                return
+            after_chunks = self.turn_chunks > 0
+            if self.buf_secs < MIN_COMMIT:
+                if not interim and after_chunks:
+                    # Repliken är slut men resten är kort: fyll ut med tystnad så att slutet
+                    # ändå registreras och coachen får svara.
+                    self._append(np.zeros(int(RATE * (MIN_COMMIT - self.buf_secs)) + RATE // 50, dtype=np.float32))
+                else:
+                    log(self.label, f"slänger {self.buf_secs * 1000:.0f} ms ljud (för kort att skicka)")
+                    self._send({"type": "input_audio_buffer.clear"})
+                    self.appended, self.buf_secs = False, 0.0
+                    if not interim:
+                        self.turn_chunks = 0
+                    return
+            self.appended, self.buf_secs = False, 0.0
+            self.turn_chunks = self.turn_chunks + 1 if interim else 0
+            self.n_commit += 1
+            eid = f"commit_{self.n_commit}"
+            self.commit_times.append({"id": eid, "t": t_end or self.last_voice or time.perf_counter(),
+                                      "who": label or self.label, "interim": interim,
+                                      "after_chunks": after_chunks})
+            self._send({"type": "input_audio_buffer.commit", "event_id": eid})
 
     def press(self):
         """Håll-knappen trycks ned: det som sagts hittills är ditt, det som följer är motpartens."""
@@ -268,7 +303,8 @@ class Source:
                     log(self.label, f"nivå topp {peak:.0f} brus {self.noise:.0f} talar={self.speaking}")
                     peak, tlog = 0.0, now
                 # Tröskel följer bakgrundsbruset, så även lågt samtalsljud räknas som tal.
-                voiced = self.held or rms > max(60.0, self.noise * 3.0)
+                loud = rms > max(60.0, self.noise * 3.0)
+                voiced = self.held or loud
                 if not voiced:
                     self.noise = 0.98 * self.noise + 0.02 * rms
                 if voiced:
@@ -281,6 +317,12 @@ class Source:
                         self.on_event("speech", self.label, None)
                 if self.speaking:
                     self._append(x)
+                    # Lång replik: skicka en delbit vid en liten paus mellan ord (eller senast vid
+                    # CHUNK_HARD), så att texten dyker upp medan personen fortfarande pratar.
+                    b = self.buf_secs
+                    if b >= CHUNK_HARD or (b >= CHUNK_SOFT and not loud):
+                        who = ("Motpart" if self.held else "Du") if self.ptt else None
+                        self._commit(label=who, t_end=now, interim=True)
                 else:
                     self.preroll.append(x)
                     while len(self.preroll) > int(PREROLL / 0.02):
@@ -321,14 +363,19 @@ class Source:
                 t = ev.get("type", "")
                 if t == "input_audio_buffer.committed":
                     iid = ev.get("item_id")
-                    t_end, lab = self.commit_times.pop(0) if self.commit_times else (time.perf_counter(), self.label)
+                    with self.blk:
+                        c = self.commit_times.pop(0) if self.commit_times else None
+                    if c is None:
+                        c = {"t": time.perf_counter(), "who": self.label, "interim": False, "after_chunks": False}
+                    t_end, lab = c["t"], c["who"]
                     self.item_end[iid] = t_end
                     self.item_label[iid] = lab
+                    self.item_meta[iid] = c
                     # Snabbspår: texten har redan strömmat in, så vänta inte på "completed".
                     early = self.partial.get(iid, "").strip()
                     if EARLY and len(early.split()) >= 2:
                         self.early[iid] = early
-                        self.on_event("final", lab, (early, t_end))
+                        self.on_event("final", lab, (early, t_end, c["interim"]))
                 elif t.endswith("input_audio_transcription.delta"):
                     iid = ev.get("item_id")
                     self.partial[iid] = self.partial.get(iid, "") + ev.get("delta", "")
@@ -340,17 +387,30 @@ class Source:
                     self.partial.pop(iid, None)
                     t_end = self.item_end.pop(iid, time.perf_counter())
                     lab = self.item_label.pop(iid, self.label)
+                    meta = self.item_meta.pop(iid, {})
+                    interim = meta.get("interim", False)
                     early = self.early.pop(iid, None)
                     if text and is_garbage(text):
                         log(self.label, "ignorerar skräptext:", text[:60])
-                        return
+                        text = ""
                     if early is not None:
                         if text and text != early:
                             self.on_event("fix", lab, (early, text))
-                    elif text:
-                        self.on_event("final", lab, (text, t_end))
+                    elif text or (not interim and meta.get("after_chunks")):
+                        # Tom slutbit efter delbitar: repliken är ändå slut, så coachen ska svara.
+                        self.on_event("final", lab, (text, t_end, interim))
                 elif t == "error":
-                    self.on_event("error", self.label, ev.get("error", {}).get("message", str(ev)))
+                    err = ev.get("error", {}) or {}
+                    eid = err.get("event_id")
+                    with self.blk:
+                        failed = [c for c in self.commit_times if c["id"] == eid] if eid else []
+                        if failed:
+                            self.commit_times = [c for c in self.commit_times if c["id"] != eid]
+                    if failed:
+                        # En vägrad commit får aldrig förskjuta talarna; inget att visa för användaren.
+                        log(self.label, "commit vägrades och togs bort ur kön:", err.get("message", "")[:120])
+                        return
+                    self.on_event("error", self.label, err.get("message", str(ev)))
 
 
 # ---------------------------------------------------------------- coach
@@ -731,11 +791,17 @@ class Api:
         elif kind == "suggestion" and data[1]:
             log("förslag", f"{data[1]['forsta_ord']:.2f}s", data[0].strip().replace("\n", " | ")[:160])
         if kind == "final":
-            text, t_end = data
+            text, t_end, interim = data
             if self.coach:
-                self.coach.add(who, text)
-                if who == "Motpart" and not self.paused:
+                if text:
+                    self.coach.add(who, text)
+                # Coachen svarar först när motpartens hela replik är slut, inte på delbitar.
+                if who == "Motpart" and not interim and not self.paused:
                     self.coach.suggest(t_end)
+            if not text:
+                return
+            if interim:
+                kind = "partial"    # visa texten, men börja inte "tänka" mitt i repliken
             data = text
         elif kind == "fix":
             early, full = data
