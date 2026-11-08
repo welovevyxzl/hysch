@@ -1,13 +1,13 @@
 """Viska - lyssnar på samtalet och visar vad du kan svara, i realtid.
 
 Ljud: mikrofon (= Du) + Windows systemljud via WASAPI loopback (= Motpart).
-Tal-till-text: OpenAI Realtime, modell gpt-live-transcribe (en anslutning per ljudkälla).
+Tal-till-text: varje replik skickas som en hel ljudfil till OpenAI när personen tystnat (inte live),
+modell gpt-4o-transcribe, med whisper-1 som reserv om kontot saknar den.
 Svarsförslag: OpenAI Responses API, modell gpt-6-luna, reasoning effort "none", strömmat.
 API-nyckel: miljövariabeln OPENAI_API_KEY, annars .env i projektmappen, annars %APPDATA%\\Viska\\config.json.
 """
 from __future__ import annotations
 
-import base64
 import json
 import os
 import queue
@@ -19,21 +19,17 @@ import numpy as np
 import webview
 import pyaudiowpatch as pa
 from openai import OpenAI
-from websockets.sync.client import connect
 
 APP_NAME = "Viska"
-TRANSCRIBE_MODEL = "gpt-live-transcribe"
+STT_MODELS = ["gpt-4o-transcribe", "whisper-1"]   # tal-till-text; nästa i listan används om kontot saknar den första
 COACH_MODEL = "gpt-6-luna"
-RT_URL = "wss://api.openai.com/v1/realtime?intent=transcription"
-RATE = 24000                 # Realtime vill ha 24 kHz PCM16 mono
-SILENCE_HANG = 0.55          # sekunder tystnad = turen är slut
+RATE = 24000                 # ljudet skickas som 24 kHz mono
+SILENCE_HANG = 0.75          # sekunder tystnad = repliken är slut (längre = färre avklippta meningar)
 SETUP_W, SETUP_H = 900, 760
-DELAY = "high"             # noggrannare tal-till-text (mer ljudkontext), lite långsammare
-EARLY = False             # vänta på färdig text i stället för halvfärdig
 PREROLL = 0.3                # sekunder ljud före talstart som skickas med
-MIN_COMMIT = 0.12            # s: kortare ljud vägrar servern ("buffer too small", minst 100 ms)
-CHUNK_SOFT = 5.0             # s: långa repliker skickas i bitar, vid nästa lilla paus efter så här länge
-CHUNK_HARD = 9.0             # s: ... och senast här, så texten syns medan någon pratar länge
+MIN_VOICED = 0.25            # s tal: kortare ljud är troligen brus och skrivs inte ut
+CHUNK_SOFT = 12.0            # s: en mycket lång replik skickas i bitar, vid nästa lilla paus efter så här länge
+CHUNK_HARD = 20.0            # s: ... och senast här, så väntan efter att man tystnat aldrig blir lång
 
 SUMMARY_MODEL = "gpt-6.1-terra"   # analys efter samtalet
 
@@ -151,101 +147,89 @@ def is_garbage(text: str) -> bool:
     return bool(_FOREIGN.search(text)) or len(text.strip(" .,!?-")) < 2
 
 
+def wav_bytes(x: np.ndarray) -> bytes:
+    """24 kHz mono PCM16 som en WAV-fil i minnet."""
+    import io
+    import wave
+    pcm = np.clip(x, -32768, 32767).astype("<i2").tobytes()
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(RATE)
+        w.writeframes(pcm)
+    return buf.getvalue()
+
+
+def normalize(x: np.ndarray) -> np.ndarray:
+    """Höj svaga inspelningar (lågt mikrofonljud) så att modellen hör orden bättre."""
+    peak = float(np.max(np.abs(x))) if len(x) else 0.0
+    if 200 < peak < 9000:
+        x = x * min(8.0, 12000.0 / peak)
+    return x
+
+
 class Source:
-    """En ljudkälla -> egen Realtime-transkribering. Enkel energi-VAD styr turerna."""
+    """En ljudkälla. En enkel energi-VAD hittar repliker; varje replik transkriberas i ett svep
+    (inte live), vilket ger modellen hela meningen som sammanhang."""
 
     def __init__(self, label, device_name, key, on_event, hints=None):
         self.label, self.device_name, self.key, self.on_event = label, device_name, key, on_event
         self.hints = hints or {}
+        self.client = OpenAI(api_key=key, timeout=30)
+        self.models = list(STT_MODELS)        # första som fungerar på kontot används
         self.stop = threading.Event()
-        self.ws = None
-        self.lock = threading.Lock()
         self.speaking = False
         self.last_voice = 0.0
-        self.appended = False
         self.noise = 150.0
         self.preroll: list[np.ndarray] = []
-        # Skickade commits i ordning: {"id", "t" (tal slut), "who", "interim", "after_chunks"}.
-        # Varje commit har ett eget event_id, så en commit som servern vägrar kan plockas bort
-        # i stället för att förskjuta talarna för resten av samtalet.
-        self.commit_times: list[dict] = []
-        self.blk = threading.RLock()     # skyddar ljudbufferten och commit-kön
-        self.buf_secs = 0.0              # sekunder ljud sedan senaste commit
-        self.n_commit = 0
-        self.turn_chunks = 0             # delbitar skickade i pågående replik
-        self.item_label: dict[str, str] = {}
-        self.item_meta: dict[str, dict] = {}
+        self.blk = threading.RLock()          # skyddar ljudbufferten
+        self.clip: list[np.ndarray] = []      # ljud i pågående replik
+        self.clip_secs = 0.0
+        self.voiced_secs = 0.0                # hur mycket av det som faktiskt var tal
+        self.turn_chunks = 0                  # delbitar skickade i pågående (mycket lång) replik
+        self.jobs: queue.Queue = queue.Queue()  # repliker i tur och ordning, så texten aldrig byter plats
         self.ptt = False    # håll-knapp: hålls = motparten pratar, annars = du
         self.held = False
-        self.item_end: dict[str, float] = {}
-        self.partial: dict[str, str] = {}
-        self.early: dict[str, str] = {}
         self.level = 0.0
 
     def start(self):
-        self.ws = connect(RT_URL, additional_headers={"Authorization": f"Bearer {self.key}"},
-                          max_size=None, open_timeout=10, close_timeout=1)
-        tr = {"model": TRANSCRIBE_MODEL, "languages": ["sv"], "delay": DELAY}
-        tr.update(self.hints)   # prompt + keywords från formuläret
-        self.ws.send(json.dumps({
-            "type": "session.update",
-            "session": {
-                "type": "transcription",
-                "audio": {"input": {
-                    "format": {"type": "audio/pcm", "rate": RATE},
-                    "transcription": tr,
-                    "turn_detection": None,
-                }},
-            },
-        }))
-        for fn in (self._capture, self._receive, self._watchdog):
+        for fn in (self._capture, self._watchdog, self._worker):
             threading.Thread(target=fn, daemon=True).start()
 
     def close(self):
         self.stop.set()
-        try:
-            self.ws.close()
-        except Exception:
-            pass
-
-    def _send(self, obj):
-        with self.lock:
-            self.ws.send(json.dumps(obj))
+        self.jobs.put(None)
 
     def _append(self, x: np.ndarray):
-        pcm = np.clip(x, -32768, 32767).astype("<i2").tobytes()
         with self.blk:
-            self._send({"type": "input_audio_buffer.append", "audio": base64.b64encode(pcm).decode()})
-            self.appended = True
-            self.buf_secs += len(x) / RATE
+            self.clip.append(x)
+            self.clip_secs += len(x) / RATE
 
     def _commit(self, label=None, t_end=None, interim=False):
-        """Skicka ljudet hittills för transkribering.
-        interim=True: en delbit mitt i en lång replik (coachen svarar inte på den)."""
+        """Replikens ljud är klart: lägg det i transkriberingskön.
+        interim=True: en delbit mitt i en mycket lång replik (coachen svarar inte på den)."""
         with self.blk:
-            if not self.appended:
+            if not self.clip:
                 return
+            who = label or self.label
             after_chunks = self.turn_chunks > 0
-            if self.buf_secs < MIN_COMMIT:
-                if not interim and after_chunks:
-                    # Repliken är slut men resten är kort: fyll ut med tystnad så att slutet
-                    # ändå registreras och coachen får svara.
-                    self._append(np.zeros(int(RATE * (MIN_COMMIT - self.buf_secs)) + RATE // 50, dtype=np.float32))
-                else:
-                    log(self.label, f"slänger {self.buf_secs * 1000:.0f} ms ljud (för kort att skicka)")
-                    self._send({"type": "input_audio_buffer.clear"})
-                    self.appended, self.buf_secs = False, 0.0
+            voiced = self.voiced_secs
+            audio = np.concatenate(self.clip)
+            self.clip, self.clip_secs, self.voiced_secs = [], 0.0, 0.0
+            if voiced < MIN_VOICED:
+                if interim or not after_chunks:
+                    log(self.label, f"slänger {voiced * 1000:.0f} ms tal (för kort, troligen brus)")
                     if not interim:
                         self.turn_chunks = 0
                     return
-            self.appended, self.buf_secs = False, 0.0
+                audio = None    # kort slut efter delbitar: inget att skriva, men repliken är ändå slut
             self.turn_chunks = self.turn_chunks + 1 if interim else 0
-            self.n_commit += 1
-            eid = f"commit_{self.n_commit}"
-            self.commit_times.append({"id": eid, "t": t_end or self.last_voice or time.perf_counter(),
-                                      "who": label or self.label, "interim": interim,
-                                      "after_chunks": after_chunks})
-            self._send({"type": "input_audio_buffer.commit", "event_id": eid})
+            job = {"audio": audio, "who": who, "t": t_end or self.last_voice or time.perf_counter(),
+                   "interim": interim, "after_chunks": after_chunks}
+        self.jobs.put(job)
+        if audio is not None:
+            self.on_event("partial", who, "…")      # visar att vi skriver ut det som sades
 
     def press(self):
         """Håll-knappen trycks ned: det som sagts hittills är ditt, det som följer är motpartens."""
@@ -321,9 +305,11 @@ class Source:
                         self.on_event("speech", self.label, None)
                 if self.speaking:
                     self._append(x)
-                    # Lång replik: skicka en delbit vid en liten paus mellan ord (eller senast vid
-                    # CHUNK_HARD), så att texten dyker upp medan personen fortfarande pratar.
-                    b = self.buf_secs
+                    if voiced:
+                        self.voiced_secs += 0.02
+                    # Mycket lång replik: skicka en bit vid en liten paus mellan ord (eller senast
+                    # vid CHUNK_HARD), så att väntan efter att man tystnat aldrig blir lång.
+                    b = self.clip_secs
                     if b >= CHUNK_HARD or (b >= CHUNK_SOFT and not loud):
                         who = ("Motpart" if self.held else "Du") if self.ptt else None
                         self._commit(label=who, t_end=now, interim=True)
@@ -350,71 +336,59 @@ class Source:
                 except Exception:
                     pass
 
-    def _receive(self):
-        try:
-            for msg in self.ws:
-                try:
-                    self._handle(json.loads(msg))
-                except Exception as e:
-                    log(self.label, "fel i händelse:", repr(e))
-        except Exception as e:
-            if not self.stop.is_set():
-                self.on_event("error", self.label, f"Anslutningen bröts: {e}")
+    # ---------- transkribering
+    def _worker(self):
+        while not self.stop.is_set():
+            job = self.jobs.get()
+            if job is None:
+                return
+            try:
+                self._process(job)
+            except Exception as e:
+                log(self.label, "transkribering fel:", repr(e)[:300])
+                self.on_event("error", self.label, f"Transkribering: {e}")
+                self.on_event("partial", job["who"], "")
 
-    def _handle(self, ev):
-        if True:
-            if True:
-                t = ev.get("type", "")
-                if t == "input_audio_buffer.committed":
-                    iid = ev.get("item_id")
-                    with self.blk:
-                        c = self.commit_times.pop(0) if self.commit_times else None
-                    if c is None:
-                        c = {"t": time.perf_counter(), "who": self.label, "interim": False, "after_chunks": False}
-                    t_end, lab = c["t"], c["who"]
-                    self.item_end[iid] = t_end
-                    self.item_label[iid] = lab
-                    self.item_meta[iid] = c
-                    # Snabbspår: texten har redan strömmat in, så vänta inte på "completed".
-                    early = self.partial.get(iid, "").strip()
-                    if EARLY and len(early.split()) >= 2:
-                        self.early[iid] = early
-                        self.on_event("final", lab, (early, t_end, c["interim"]))
-                elif t.endswith("input_audio_transcription.delta"):
-                    iid = ev.get("item_id")
-                    self.partial[iid] = self.partial.get(iid, "") + ev.get("delta", "")
-                    who = ("Motpart" if self.held else "Du") if self.ptt else self.label
-                    self.on_event("partial", who, self.partial[iid])
-                elif t.endswith("input_audio_transcription.completed"):
-                    iid = ev.get("item_id")
-                    text = (ev.get("transcript") or self.partial.get(iid, "")).strip()
-                    self.partial.pop(iid, None)
-                    t_end = self.item_end.pop(iid, time.perf_counter())
-                    lab = self.item_label.pop(iid, self.label)
-                    meta = self.item_meta.pop(iid, {})
-                    interim = meta.get("interim", False)
-                    early = self.early.pop(iid, None)
-                    if text and is_garbage(text):
-                        log(self.label, "ignorerar skräptext:", text[:60])
-                        text = ""
-                    if early is not None:
-                        if text and text != early:
-                            self.on_event("fix", lab, (early, text))
-                    elif text or (not interim and meta.get("after_chunks")):
-                        # Tom slutbit efter delbitar: repliken är ändå slut, så coachen ska svara.
-                        self.on_event("final", lab, (text, t_end, interim))
-                elif t == "error":
-                    err = ev.get("error", {}) or {}
-                    eid = err.get("event_id")
-                    with self.blk:
-                        failed = [c for c in self.commit_times if c["id"] == eid] if eid else []
-                        if failed:
-                            self.commit_times = [c for c in self.commit_times if c["id"] != eid]
-                    if failed:
-                        # En vägrad commit får aldrig förskjuta talarna; inget att visa för användaren.
-                        log(self.label, "commit vägrades och togs bort ur kön:", err.get("message", "")[:120])
-                        return
-                    self.on_event("error", self.label, err.get("message", str(ev)))
+    def _process(self, job):
+        text = ""
+        if job["audio"] is not None:
+            t0 = time.perf_counter()
+            text = self._transcribe(job["audio"])
+            log(self.label, f"skrev ut {len(job['audio']) / RATE:.1f} s ljud på {time.perf_counter() - t0:.2f} s")
+            if text and is_garbage(text):
+                log(self.label, "ignorerar skräptext:", text[:60])
+                text = ""
+        if text or (not job["interim"] and job["after_chunks"]):
+            # Tom slutbit efter delbitar: repliken är ändå slut, så coachen ska svara.
+            self.on_event("final", job["who"], (text, job["t"], job["interim"]))
+        elif job["audio"] is not None:
+            self.on_event("partial", job["who"], "")     # ta bort "…"
+
+    def _prompt(self) -> str:
+        p = self.hints.get("prompt", "")
+        kw = self.hints.get("keywords")
+        if kw:
+            p += " Namn och ord: " + ", ".join(kw) + "."
+        return p[:600]
+
+    def _transcribe(self, audio: np.ndarray) -> str:
+        wav = wav_bytes(normalize(audio))
+        prompt = self._prompt()
+        while True:
+            model = self.models[0]
+            try:
+                r = self.client.audio.transcriptions.create(
+                    model=model, file=("tal.wav", wav, "audio/wav"), language="sv", prompt=prompt)
+                return (getattr(r, "text", None) or (r if isinstance(r, str) else "")).strip()
+            except Exception as e:
+                msg = str(e).lower()
+                no_model = getattr(e, "status_code", None) in (400, 403, 404) and "model" in msg
+                if no_model and len(self.models) > 1:
+                    # Kontot saknar modellen: prova nästa (whisper-1 finns på alla konton).
+                    log(self.label, f"modellen {model} gick inte, provar {self.models[1]}:", str(e)[:160])
+                    self.models.pop(0)
+                    continue
+                raise
 
 
 # ---------------------------------------------------------------- coach

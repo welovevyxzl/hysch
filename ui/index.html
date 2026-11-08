@@ -962,6 +962,15 @@ function restoredApp() {     // anropas av Python när fönstret visas igen
 // Reserv om händelsen från Python uteblir: fönstret får fokus igen efter att ha minimerats.
 window.addEventListener("focus", () => { if (minimizing && Date.now() - minimizedAt > 700) restoredApp(); });
 
+// När fönstret visas lägger WebView2 tangentbordsfokus på första knappen (en svart ram runt minimera).
+// Släpp den så fort fönstret är uppe; Tab visar fortfarande fokusramen som vanligt.
+function clearStartFocus() {
+  const a = document.activeElement;
+  if (a && a !== document.body && a.closest && a.closest(".winbtns")) a.blur();
+}
+window.addEventListener("focus", () => { clearStartFocus(); setTimeout(clearStartFocus, 150); });
+[400, 1200, 2400].forEach(t => setTimeout(clearStartFocus, t));
+
 // Intro: loggan vaknar, sedan zoomar vi in genom den och appen landar. Klick eller tangent hoppar över.
 // Python visar fönstret först när sidan har laddat och anropar då startIntro().
 let introStarted = false;
@@ -1282,6 +1291,7 @@ function onEvent(e) {
     $("lat").textContent = "Det var du som pratade. Behåller förra förslaget.";
     $("lat").classList.remove("bad");
   } else if (e.kind === "partial" || e.kind === "final") {
+    if (!String(e.data || "").trim()) { $("heard").replaceChildren(); return; }
     const b = document.createElement("b"); b.textContent = e.who + ": ";
     $("heard").replaceChildren(b, String(e.data).slice(-180));
     if (e.kind === "final" && (e.who === "Motpart" || e.who === "Samtal") && !paused) $("stage").classList.add("thinking");
