@@ -35,8 +35,12 @@ MIN_COMMIT = 0.12            # s: kortare ljud vägrar servern ("buffer too smal
 CHUNK_SOFT = 5.0             # s: långa repliker skickas i bitar, vid nästa lilla paus efter så här länge
 CHUNK_HARD = 9.0             # s: ... och senast här, så texten syns medan någon pratar länge
 
+SUMMARY_MODEL = "gpt-6.1-terra"   # analys efter samtalet
+
 CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
+CALLS_DIR = os.path.join(CONFIG_DIR, "calls")      # ett JSON-dokument per samtal
+CALL_ID = re.compile(r"\d{8}-\d{6}")
 
 
 # ---------------------------------------------------------------- config
@@ -592,6 +596,113 @@ def fade_in_window(duration: float = 0.34) -> None:
         time.sleep(0.012)
 
 
+# ---------------------------------------------------------------- samtal: spara + analysera
+def save_call(rec: dict) -> None:
+    """Spara ett samtal atomiskt (skriv till temp, byt sedan namn)."""
+    os.makedirs(CALLS_DIR, exist_ok=True)
+    path = os.path.join(CALLS_DIR, rec["id"] + ".json")
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(rec, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+
+def load_call(call_id: str) -> dict | None:
+    if not CALL_ID.fullmatch(call_id or ""):
+        return None
+    try:
+        with open(os.path.join(CALLS_DIR, call_id + ".json"), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _arr(item):
+    return {"type": "array", "items": item}
+
+
+_S = {"type": "string"}
+SUMMARY_SCHEMA = {
+    "type": "object", "additionalProperties": False,
+    "required": ["title", "summary", "outcome", "outcome_text", "sentiment", "they_said", "you_said",
+                 "objections", "todos", "score", "score_reason", "strengths", "improvements",
+                 "next_step", "follow_up_email"],
+    "properties": {
+        "title": _S, "summary": _S,
+        "outcome": {"type": "string", "enum": ["Sålt", "Bokat möte", "Uppföljning", "Nej tack", "Oklart"]},
+        "outcome_text": _S,
+        "sentiment": {"type": "string", "enum": ["Positiv", "Neutral", "Negativ"]},
+        "they_said": _arr(_S), "you_said": _arr(_S),
+        "objections": _arr({"type": "object", "additionalProperties": False,
+                            "required": ["objection", "handled", "better_reply"],
+                            "properties": {"objection": _S, "handled": _S, "better_reply": _S}}),
+        "todos": _arr({"type": "object", "additionalProperties": False, "required": ["task", "owner", "due"],
+                       "properties": {"task": _S, "owner": {"type": "string", "enum": ["Du", "Motpart"]}, "due": _S}}),
+        "score": {"type": "integer"}, "score_reason": _S,
+        "strengths": _arr(_S), "improvements": _arr(_S), "next_step": _S,
+        "follow_up_email": {"type": "object", "additionalProperties": False, "required": ["subject", "body"],
+                            "properties": {"subject": _S, "body": _S}},
+    },
+}
+
+SUMMARY_PROMPT = (
+    "Du är en erfaren säljchef som går igenom ett avslutat säljsamtal åt en svensk entreprenör "
+    "('Du' i transkriptionen). Den som ringdes kallas 'Motpart'. Transkriptionen är automatisk och kan "
+    "innehålla hörfel och ibland fel talare: tolka rimligt, men hitta aldrig på något som inte sades.\n"
+    "Skriv på naturlig, konkret svenska. Var ärlig: beröm det som var bra och säg rakt vad som kan bli bättre.\n"
+    "- title: kort rubrik, t.ex. 'Patrik på LS Customs: intresse för pilot'.\n"
+    "- summary: 2-4 meningar om vad samtalet handlade om och hur det slutade.\n"
+    "- outcome och outcome_text: utfallet och en mening om varför.\n"
+    "- they_said / you_said: det viktigaste var part sa (behov, fakta, löften). Högst 6 punkter var.\n"
+    "- objections: motpartens invändningar, hur de bemöttes och ett bättre svar till nästa gång. Tom lista om inga.\n"
+    "- todos: konkreta saker att göra efter samtalet, med ägare (Du eller Motpart) och när (tom sträng om inget sades).\n"
+    "- score: 0-100 för hur väl entreprenören skötte samtalet mot målet. score_reason: en mening.\n"
+    "- strengths / improvements: 2-4 punkter var, specifika med exempel ur samtalet.\n"
+    "- next_step: det viktigaste nästa steget.\n"
+    "- follow_up_email: kort uppföljningsmejl från entreprenören till motparten (ämne och brödtext, "
+    "du-tilltal). Signera med entreprenörens namn om det finns, annars utan namn. Inga platshållare.\n"
+)
+
+
+def _clock(t: float) -> str:
+    t = int(t or 0)
+    return f"{t // 60:02d}:{t % 60:02d}"
+
+
+def summarize_call(key: str, rec: dict) -> dict:
+    """Analysera ett avslutat samtal med SUMMARY_MODEL. Returnerar en dict enligt SUMMARY_SCHEMA."""
+    form = rec.get("form", {})
+    ctx = (f"Entreprenören (Du): {form.get('me', '')}\nMotparten: {form.get('who', '')}\n"
+           f"Mål med samtalet: {form.get('goal', '')}\nVad som säljs: {form.get('product', '')}\n"
+           f"Pris: {form.get('price', '')}\nArgument: {form.get('args', '')}\nInvändningar/övrigt: {form.get('notes', '')}\n")
+    lines = "\n".join(f"[{_clock(l.get('t'))}] {l['who']}: {l['text']}" for l in rec.get("transcript", []))
+    client = OpenAI(api_key=key, timeout=180)
+    base = dict(model=SUMMARY_MODEL, instructions=SUMMARY_PROMPT + "\nBakgrund:\n" + ctx,
+                input=f"Transkription av samtalet:\n{lines}")
+    try:
+        r = client.responses.create(**base, text={"format": {
+            "type": "json_schema", "name": "samtalsanalys", "schema": SUMMARY_SCHEMA, "strict": True}})
+    except Exception as e:
+        # Modellen kanske inte stöder strukturerat svar: be om JSON i texten i stället.
+        if not any(w in str(e).lower() for w in ("format", "schema", "json")):
+            raise
+        log("summering: strukturerat svar stöds inte, försöker med fri JSON:", str(e)[:160])
+        base["instructions"] += ("\nSvara ENDAST med ett JSON-objekt med exakt dessa fält: "
+                                 + json.dumps(SUMMARY_SCHEMA["properties"], ensure_ascii=False))
+        r = client.responses.create(**base)
+    raw = r.output_text or ""
+    data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+    # Säkra upp fälten så att gränssnittet alltid får något rimligt.
+    data["score"] = max(0, min(100, int(data.get("score") or 0)))
+    for k in ("they_said", "you_said", "objections", "todos", "strengths", "improvements"):
+        data[k] = data.get(k) or []
+    for td in data["todos"]:
+        td["done"] = False
+    data.setdefault("follow_up_email", {"subject": "", "body": ""})
+    data["model"] = SUMMARY_MODEL
+    return data
+
+
 def set_topmost(on: bool) -> None:
     """Alltid överst via Windows direkt, asynkront (pywebviews on_top kan låsa sig)."""
     import ctypes
@@ -623,6 +734,9 @@ class Api:
         self._win = None
         self._alpha_hidden = False          # fönstret är osynligt (alpha 0) efter minimering
         self._alpha_lock = threading.Lock()
+        self.call: dict | None = None        # pågående samtal: transkription och förslag
+        self._call_lock = threading.Lock()
+        self._last_save = 0.0
         # Alla fönsteranrop (JS, storlek, överst) går genom EN tråd, i tur och ordning.
         # Annars kan nivåmätaren och Avsluta vänta på varandra och låsa fönstret.
         self._uiq: queue.Queue = queue.Queue()
@@ -704,6 +818,12 @@ class Api:
         except Exception as e:
             self.stop()
             return {"ok": False, "error": f"Kunde inte ansluta: {e}"}
+        now = time.time()
+        with self._call_lock:
+            self.call = {"id": time.strftime("%Y%m%d-%H%M%S", time.localtime(now)), "t0": now,
+                         "started": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(now)), "ended": None,
+                         "mode": self.cfg["mode"], "form": dict(self.cfg["form"]),
+                         "transcript": [], "suggestions": [], "summary": None, "summary_error": None}
         h = 490 if self.phone else 420
         self._ui(lambda: self._win.resize(460, h), "resize live")   # krymp först när allt är igång
         set_topmost(True)
@@ -717,7 +837,100 @@ class Api:
         log("stop(): avslutat, stänger", len(old), "källor i bakgrunden")
         set_topmost(False)
         self._ui(lambda: self._win.resize(SETUP_W, SETUP_H), "resize setup")
+        rec = self._finish_call()
+        if rec is None:
+            return {"id": None}
+        threading.Thread(target=self._summarize, args=(rec,), daemon=True).start()
+        return {"id": rec["id"]}
+
+    # ---------- samtalslogg och analys
+    def _record(self, who, text):
+        """Lägg till en replik i samtalets transkription (samma talare i följd slås ihop)."""
+        with self._call_lock:
+            c = self.call
+            if not c or not text:
+                return
+            tr = c["transcript"]
+            if tr and tr[-1]["who"] == who:
+                tr[-1]["text"] += " " + text
+            else:
+                tr.append({"who": who, "t": round(time.time() - c["t0"], 1), "text": text})
+            if time.time() - self._last_save > 3:     # autospara, så inget går förlorat vid krasch
+                self._last_save = time.time()
+                try:
+                    save_call(c)
+                except Exception as e:
+                    log("autospara fel:", repr(e))
+
+    def _finish_call(self):
+        """Avsluta pågående samtal och spara det. None om inget sades."""
+        with self._call_lock:
+            rec, self.call = self.call, None
+        if not rec:
+            return None
+        rec["ended"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        rec["duration"] = round(time.time() - rec["t0"])
+        if not rec["transcript"]:
+            try:
+                os.remove(os.path.join(CALLS_DIR, rec["id"] + ".json"))
+            except OSError:
+                pass
+            return None
+        save_call(rec)
+        log("samtal sparat:", rec["id"], len(rec["transcript"]), "repliker")
+        return rec
+
+    def _summarize(self, rec):
+        key = api_key(self.cfg)
+        try:
+            if not key:
+                raise RuntimeError("Ingen OpenAI API-nyckel.")
+            rec["summary"], rec["summary_error"] = summarize_call(key, rec), None
+            log("summering klar:", rec["id"], "poäng", rec["summary"].get("score"))
+        except Exception as e:
+            rec["summary_error"] = str(e)[:400]
+            log("summering fel:", rec["id"], repr(e)[:300])
+        try:
+            save_call(rec)
+        except Exception as e:
+            log("spara fel:", repr(e))
+        self._js("summary", None, rec)
+
+    def list_calls(self):
+        out = []
+        try:
+            names = sorted((n for n in os.listdir(CALLS_DIR) if n.endswith(".json")), reverse=True)[:60]
+        except OSError:
+            names = []
+        for n in names:
+            rec = load_call(n[:-5])
+            if not rec:
+                continue
+            s = rec.get("summary") or {}
+            out.append({"id": rec["id"], "started": rec.get("started"), "duration": rec.get("duration"),
+                        "who": rec.get("form", {}).get("who", ""), "title": s.get("title", ""),
+                        "outcome": s.get("outcome", ""), "score": s.get("score"),
+                        "lines": len(rec.get("transcript", []))})
+        return out
+
+    def get_call(self, call_id):
+        return load_call(call_id)
+
+    def retry_summary(self, call_id):
+        rec = load_call(call_id)
+        if not rec:
+            return False
+        threading.Thread(target=self._summarize, args=(rec,), daemon=True).start()
         return True
+
+    def set_todo(self, call_id, idx, done):
+        rec = load_call(call_id)
+        try:
+            rec["summary"]["todos"][int(idx)]["done"] = bool(done)
+            save_call(rec)
+            return True
+        except Exception:
+            return False
 
     def minimize(self):
         """Genie-effekten spelas i JS; här tonar vi ut fönstret, minimerar och återställer opaciteten."""
@@ -760,6 +973,10 @@ class Api:
         for s in self.sources:
             s.stop.set()
         try:
+            self._finish_call()    # stängs appen mitt i ett samtal sparas det ändå (kan analyseras senare)
+        except Exception as e:
+            log("spara vid stängning fel:", repr(e))
+        try:
             fade_out_window(float(os.environ.get("SC_FADE_SECS", "0.38")))
         except Exception as e:
             log("fade-fel:", repr(e))
@@ -792,6 +1009,7 @@ class Api:
             log("förslag", f"{data[1]['forsta_ord']:.2f}s", data[0].strip().replace("\n", " | ")[:160])
         if kind == "final":
             text, t_end, interim = data
+            self._record(who, text)
             if self.coach:
                 if text:
                     self.coach.add(who, text)
@@ -812,6 +1030,10 @@ class Api:
             text, lat = data
             if lat:
                 safe_print("LATENCY", json.dumps({k: round(v, 3) for k, v in lat.items()}))
+                with self._call_lock:
+                    if self.call:
+                        self.call["suggestions"].append(
+                            {"t": round(time.time() - self.call["t0"], 1), "text": text.strip()})
             data = {"text": text, "lat": lat}
         elif kind in ("partial", "error"):
             safe_print(kind.upper(), who, data)
@@ -889,6 +1111,12 @@ def main():
                 log("test: efter Avsluta, klickar X")
                 api._ui_sync(lambda: api._win.evaluate_js('document.querySelector(".winbtns .x").click()'))
         webview.start(_auto)
+    elif os.environ.get("SC_OPENCALL"):  # för designkontroll: öppna ett sparat samtals analys
+        def _open():
+            time.sleep(3)
+            cid = json.dumps(os.environ["SC_OPENCALL"])
+            api._ui_sync(lambda: api._win.evaluate_js(f"openSummary({cid}, false)"))
+        webview.start(_open)
     elif os.environ.get("SC_TESTMIN"):  # för designkontroll: minimera, återställ, stäng
         def _min():
             time.sleep(3)
