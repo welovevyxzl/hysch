@@ -1,10 +1,11 @@
 """Viska - lyssnar på samtalet och visar vad du kan svara, i realtid.
 
 Ljud: mikrofon (= Du) + Windows systemljud via WASAPI loopback (= Motpart).
-Tal-till-text: varje replik skickas som en hel ljudfil till OpenAI när personen tystnat (inte live),
-modell gpt-4o-transcribe, med whisper-1 som reserv om kontot saknar den.
-Svarsförslag: OpenAI Responses API, modell gpt-6-luna, reasoning effort "none", strömmat.
-API-nyckel: miljövariabeln OPENAI_API_KEY, annars .env i projektmappen, annars %APPDATA%\\Viska\\config.json.
+Två lägen, valda i uppstartsguiden:
+  moln:   tal-till-text gpt-4o-transcribe (whisper-1 som reserv), förslag gpt-6-luna, analys gpt-6.1-terra.
+  lokalt: tal-till-text Whisper (faster-whisper, svenska KB-modeller) och text/analys via Ollama.
+Varje replik transkriberas i ett svep när personen tystnat (inte live).
+API-nyckel (moln): miljövariabeln OPENAI_API_KEY, annars .env, annars den sparade inställningen.
 """
 from __future__ import annotations
 
@@ -17,11 +18,22 @@ import threading
 import time
 import numpy as np
 import webview
-import pyaudiowpatch as pa
+try:
+    import pyaudiowpatch as pa      # Windows: WASAPI och loopback (motpartens ljud)
+except ImportError:                  # Mac/Linux (ej testat): vanlig PortAudio
+    import pyaudio as pa
 from openai import OpenAI
+
+import engines as E
+
+IS_WIN = sys.platform == "win32"
+IS_MAC = sys.platform == "darwin"
 
 APP_NAME = "Viska"
 STT_MODELS = ["gpt-4o-transcribe", "whisper-1"]   # tal-till-text; nästa i listan används om kontot saknar den första
+# Kvalitetsnivå i molnet: "Snabb" börjar med den lilla modellen, resten med den stora.
+STT_BY_TIER = {"fast": ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"],
+               "balanced": STT_MODELS, "best": STT_MODELS}
 COACH_MODEL = "gpt-6-luna"
 RATE = 24000                 # ljudet skickas som 24 kHz mono
 SILENCE_HANG = 0.75          # sekunder tystnad = repliken är slut (längre = färre avklippta meningar)
@@ -33,9 +45,19 @@ CHUNK_HARD = 20.0            # s: ... och senast här, så väntan efter att man
 
 SUMMARY_MODEL = "gpt-6.1-terra"   # analys efter samtalet
 
-CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
+def _app_dir() -> str:
+    """Windows: %APPDATA%\\Viska. Mac: ~/Library/Application Support/Viska."""
+    if IS_WIN:
+        return os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
+    if IS_MAC:
+        return os.path.join(os.path.expanduser("~/Library/Application Support"), APP_NAME)
+    return os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), APP_NAME)
+
+
+CONFIG_DIR = _app_dir()
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
 CALLS_DIR = os.path.join(CONFIG_DIR, "calls")      # ett JSON-dokument per samtal
+MODELS_DIR = os.path.join(CONFIG_DIR, "models")    # lokala Whisper-modeller
 CALL_ID = re.compile(r"\d{8}-\d{6}")
 
 
@@ -48,6 +70,9 @@ def log(*a):
             fh.write(time.strftime("%H:%M:%S ") + " ".join(str(x) for x in a) + "\n")
     except Exception:
         pass
+
+
+E.set_logger(log)
 
 
 def safe_print(*a):
@@ -111,6 +136,21 @@ def pa_instance(refresh=False):
 def list_devices(refresh=False):
     p = pa_instance(refresh)
     with _PA_LOCK:
+        if not IS_WIN:
+            # Mac/Linux (ej testat): inga WASAPI-enheter. Motpartens ljud kräver en virtuell enhet
+            # (t.ex. BlackHole) som visas som en inspelningsenhet.
+            mics, loops = [], []
+            for i in range(p.get_device_count()):
+                d = p.get_device_info_by_index(i)
+                if d["maxInputChannels"] < 1:
+                    continue
+                virtual = re.search(r"blackhole|loopback|soundflower|vb-cable|monitor of", d["name"], re.I)
+                (loops if virtual else mics).append(d["name"])
+            try:
+                def_mic = p.get_default_input_device_info()["name"]
+            except Exception:
+                def_mic = mics[0] if mics else ""
+            return mics, loops, def_mic, (loops[0] if loops else "")
         w = p.get_host_api_info_by_type(pa.paWASAPI)
         mics, loops = [], []
         for i in range(p.get_device_count()):
@@ -122,6 +162,34 @@ def list_devices(refresh=False):
         def_out = p.get_device_info_by_index(w["defaultOutputDevice"])["name"]
         def_loop = next((l for l in loops if l.startswith(def_out)), loops[0] if loops else "")
         return mics, loops, def_mic, def_loop
+
+
+def record_clip(device_name: str, seconds: float, on_level=None) -> np.ndarray:
+    """Spela in några sekunder från en mikrofon (24 kHz mono). Används av mikrofontestet i guiden."""
+    global _ACTIVE
+    p = pa_instance()
+    with _PA_LOCK:
+        wasapi = p.get_host_api_info_by_type(pa.paWASAPI)["index"] if IS_WIN else None
+        dev = next(p.get_device_info_by_index(i) for i in range(p.get_device_count())
+                   if p.get_device_info_by_index(i)["name"] == device_name
+                   and (wasapi is None or p.get_device_info_by_index(i)["hostApi"] == wasapi))
+        ch = max(1, min(2, int(dev["maxInputChannels"])))
+        rate = int(dev["defaultSampleRate"])
+        st = p.open(format=pa.paInt16, channels=ch, rate=rate, input=True,
+                    input_device_index=dev["index"], frames_per_buffer=rate // 50)
+        _ACTIVE += 1
+    chunks = []
+    try:
+        for _ in range(int(seconds * 50)):
+            x = to_24k_mono(st.read(rate // 50, exception_on_overflow=False), ch, rate)
+            chunks.append(x)
+            if on_level and len(x):
+                on_level(min(1.0, float(np.sqrt(np.mean(x * x))) / 4000.0))
+    finally:
+        with _PA_LOCK:
+            st.close()
+            _ACTIVE -= 1
+    return np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
 
 
 def to_24k_mono(raw: bytes, channels: int, rate: int) -> np.ndarray:
@@ -169,15 +237,42 @@ def normalize(x: np.ndarray) -> np.ndarray:
     return x
 
 
+class CloudTranscriber:
+    """OpenAI: hela repliker skickas som WAV till gpt-4o-transcribe (whisper-1 som reserv)."""
+
+    name = "cloud"
+
+    def __init__(self, key, models=None):
+        self.client = OpenAI(api_key=key, timeout=30)
+        self.models = list(models or STT_MODELS)        # första som fungerar på kontot används
+
+    def transcribe(self, audio: np.ndarray, prompt: str = "") -> str:
+        wav = wav_bytes(normalize(audio))
+        while True:
+            model = self.models[0]
+            try:
+                r = self.client.audio.transcriptions.create(
+                    model=model, file=("tal.wav", wav, "audio/wav"), language="sv", prompt=prompt)
+                return (getattr(r, "text", None) or (r if isinstance(r, str) else "")).strip()
+            except Exception as e:
+                msg = str(e).lower()
+                no_model = getattr(e, "status_code", None) in (400, 403, 404) and "model" in msg
+                if no_model and len(self.models) > 1:
+                    # Kontot saknar modellen: prova nästa (whisper-1 finns på alla konton).
+                    log(f"modellen {model} gick inte, provar {self.models[1]}:", str(e)[:160])
+                    self.models.pop(0)
+                    continue
+                raise
+
+
 class Source:
     """En ljudkälla. En enkel energi-VAD hittar repliker; varje replik transkriberas i ett svep
     (inte live), vilket ger modellen hela meningen som sammanhang."""
 
-    def __init__(self, label, device_name, key, on_event, hints=None):
+    def __init__(self, label, device_name, key, on_event, hints=None, transcriber=None):
         self.label, self.device_name, self.key, self.on_event = label, device_name, key, on_event
         self.hints = hints or {}
-        self.client = OpenAI(api_key=key, timeout=30)
-        self.models = list(STT_MODELS)        # första som fungerar på kontot används
+        self.transcriber = transcriber or CloudTranscriber(key)    # moln eller lokal Whisper
         self.stop = threading.Event()
         self.speaking = False
         self.last_voice = 0.0
@@ -263,10 +358,10 @@ class Source:
         p = pa_instance()
         try:
             with _PA_LOCK:
-                wasapi = p.get_host_api_info_by_type(pa.paWASAPI)["index"]
+                wasapi = p.get_host_api_info_by_type(pa.paWASAPI)["index"] if IS_WIN else None
                 dev = next(p.get_device_info_by_index(i) for i in range(p.get_device_count())
                            if p.get_device_info_by_index(i)["name"] == self.device_name
-                           and p.get_device_info_by_index(i)["hostApi"] == wasapi)
+                           and (wasapi is None or p.get_device_info_by_index(i)["hostApi"] == wasapi))
                 ch = max(1, min(2, int(dev["maxInputChannels"])))
                 rate = int(dev["defaultSampleRate"])
                 log(self.label, "öppnar", self.device_name, "index", dev["index"], "rate", rate, "ch", ch)
@@ -355,7 +450,7 @@ class Source:
             t0 = time.perf_counter()
             text = self._transcribe(job["audio"])
             log(self.label, f"skrev ut {len(job['audio']) / RATE:.1f} s ljud på {time.perf_counter() - t0:.2f} s")
-            if text and is_garbage(text):
+            if text and (is_garbage(text) or E.is_hallucination(text)):
                 log(self.label, "ignorerar skräptext:", text[:60])
                 text = ""
         if text or (not job["interim"] and job["after_chunks"]):
@@ -372,23 +467,7 @@ class Source:
         return p[:600]
 
     def _transcribe(self, audio: np.ndarray) -> str:
-        wav = wav_bytes(normalize(audio))
-        prompt = self._prompt()
-        while True:
-            model = self.models[0]
-            try:
-                r = self.client.audio.transcriptions.create(
-                    model=model, file=("tal.wav", wav, "audio/wav"), language="sv", prompt=prompt)
-                return (getattr(r, "text", None) or (r if isinstance(r, str) else "")).strip()
-            except Exception as e:
-                msg = str(e).lower()
-                no_model = getattr(e, "status_code", None) in (400, 403, 404) and "model" in msg
-                if no_model and len(self.models) > 1:
-                    # Kontot saknar modellen: prova nästa (whisper-1 finns på alla konton).
-                    log(self.label, f"modellen {model} gick inte, provar {self.models[1]}:", str(e)[:160])
-                    self.models.pop(0)
-                    continue
-                raise
+        return self.transcriber.transcribe(audio, self._prompt())
 
 
 # ---------------------------------------------------------------- coach
@@ -433,12 +512,53 @@ def build_instructions(form: dict, phone: bool = False) -> str:
         f"Pris: {form.get('price', '')}\n"
         f"Viktiga argument: {form.get('args', '')}\n"
         f"Övrigt: {form.get('notes', '')}\n"
+        + (f"Det här vill användaren särskilt få hjälp med: {form['focus']}\n" if form.get("focus") else "")
     ) + (PHONE_NOTE if phone else "")
 
 
-class Coach:
-    def __init__(self, key, form, on_event, phone=False):
+class CloudLLM:
+    """OpenAI Responses API: strömmade förslag (gpt-6-luna) och analys efter samtalet (gpt-6.1-terra)."""
+
+    kind = "cloud"
+
+    def __init__(self, key):
+        self.key = key
         self.client = OpenAI(api_key=key, timeout=15)
+        self.model = SUMMARY_MODEL
+
+    def warm(self):
+        self.client.responses.create(model=COACH_MODEL, input="Svara: ok",
+                                     reasoning={"effort": "none"}, max_output_tokens=16)
+
+    def stream(self, instructions: str, text: str, max_tokens: int = 160):
+        stream = self.client.responses.create(
+            model=COACH_MODEL, instructions=instructions, input=text,
+            reasoning={"effort": "none"}, max_output_tokens=max_tokens, stream=True)
+        for ev in stream:
+            if ev.type == "response.output_text.delta":
+                yield ev.delta
+
+    def analyze(self, instructions: str, text: str, schema: dict) -> dict:
+        client = OpenAI(api_key=self.key, timeout=180)
+        base = dict(model=SUMMARY_MODEL, instructions=instructions, input=text)
+        try:
+            r = client.responses.create(**base, text={"format": {
+                "type": "json_schema", "name": "samtalsanalys", "schema": schema, "strict": True}})
+        except Exception as e:
+            # Modellen kanske inte stöder strukturerat svar: be om JSON i texten i stället.
+            if not any(w in str(e).lower() for w in ("format", "schema", "json")):
+                raise
+            log("summering: strukturerat svar stöds inte, försöker med fri JSON:", str(e)[:160])
+            base["instructions"] += ("\nSvara ENDAST med ett JSON-objekt med exakt dessa fält: "
+                                     + json.dumps(schema["properties"], ensure_ascii=False))
+            r = client.responses.create(**base)
+        raw = r.output_text or ""
+        return json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+
+
+class Coach:
+    def __init__(self, llm, form, on_event, phone=False):
+        self.llm = llm
         self.phone = phone
         self.instructions = build_instructions(form, phone)
         self.on_event = on_event
@@ -450,10 +570,9 @@ class Coach:
 
     def _warm(self):
         try:
-            self.client.responses.create(model=COACH_MODEL, input="Svara: ok",
-                                         reasoning={"effort": "none"}, max_output_tokens=16)
+            self.llm.warm()
         except Exception as e:
-            self.on_event("error", "AI", f"{COACH_MODEL}: {e}")
+            self.on_event("error", "AI", f"Textmodellen: {e}")
 
     def add(self, who, text):
         # Slå ihop korta pauser ("Hej," + "det är Anna") till en replik.
@@ -481,23 +600,20 @@ class Coach:
         first = None
         out = ""
         try:
-            stream = self.client.responses.create(
-                model=COACH_MODEL, instructions=self.instructions,
-                input=f"Samtalet hittills:\n{convo}\n\nVad ska jag säga nu?",
-                reasoning={"effort": "none"}, max_output_tokens=160, stream=True)
-            for ev in stream:
+            stream = self.llm.stream(self.instructions,
+                                     f"Samtalet hittills:\n{convo}\n\nVad ska jag säga nu?", 160)
+            for delta in stream:
                 if gen != self.gen:
                     return  # ett nyare förslag är på väg
-                if ev.type == "response.output_text.delta":
-                    if first is None:
-                        first = time.perf_counter()
-                    out += ev.delta
-                    if self.phone and len(out.strip()) < 5 and "SKIP".startswith(out.strip().upper()):
-                        continue  # kan bli SKIP: visa inget förrän vi vet
-                    if self.phone and out.strip().upper().startswith("SKIP"):
-                        self.on_event("skip", "AI", None)
-                        return
-                    self.on_event("suggestion", "AI", (out, None))
+                if first is None:
+                    first = time.perf_counter()
+                out += delta
+                if self.phone and len(out.strip()) < 5 and "SKIP".startswith(out.strip().upper()):
+                    continue  # kan bli SKIP: visa inget förrän vi vet
+                if self.phone and out.strip().upper().startswith("SKIP"):
+                    self.on_event("skip", "AI", None)
+                    return
+                self.on_event("suggestion", "AI", (out, None))
             if self.phone and out.strip().upper().startswith("SKIP"):
                 self.on_event("skip", "AI", None)
                 return
@@ -510,7 +626,9 @@ class Coach:
 
 
 def app_windows() -> list:
-    """Appens synliga toppfönster (titel Viska) i den här processen."""
+    """Appens synliga toppfönster (titel Viska) i den här processen. Bara Windows."""
+    if not IS_WIN:
+        return []
     import ctypes
     from ctypes import wintypes
     user32 = ctypes.windll.user32
@@ -533,7 +651,9 @@ def app_windows() -> list:
 
 
 def set_window_alpha(alpha: int, hwnds=None) -> list:
-    """Sätt hela fönstrets genomskinlighet (0-255) via layered window."""
+    """Sätt hela fönstrets genomskinlighet (0-255) via layered window. Bara Windows."""
+    if not IS_WIN:
+        return []
     import ctypes
     user32 = ctypes.windll.user32
     GWL_EXSTYLE, WS_EX_LAYERED, LWA_ALPHA = -20, 0x80000, 0x2
@@ -547,6 +667,8 @@ def set_window_alpha(alpha: int, hwnds=None) -> list:
 def fade_out_window(duration: float = 0.38, ease_in: bool = False) -> None:
     """Tona ut hela fönstret, t.ex. innan appen stängs eller minimeras.
     ease_in=True: långsamt i början, snabbt på slutet (så genie-formen hinner synas)."""
+    if not IS_WIN:
+        return
     hwnds = set_window_alpha(255)
     t0 = time.perf_counter()
     while True:
@@ -560,6 +682,8 @@ def fade_out_window(duration: float = 0.38, ease_in: bool = False) -> None:
 
 def fade_in_window(duration: float = 0.34) -> None:
     """Tona in fönstret från osynligt till helt synligt."""
+    if not IS_WIN:
+        return
     hwnds = app_windows()
     t0 = time.perf_counter()
     while True:
@@ -643,29 +767,14 @@ def _clock(t: float) -> str:
     return f"{t // 60:02d}:{t % 60:02d}"
 
 
-def summarize_call(key: str, rec: dict) -> dict:
-    """Analysera ett avslutat samtal med SUMMARY_MODEL. Returnerar en dict enligt SUMMARY_SCHEMA."""
+def summarize_call(llm, rec: dict) -> dict:
+    """Analysera ett avslutat samtal med textmodellen (moln eller lokal). Returnerar en dict enligt SUMMARY_SCHEMA."""
     form = rec.get("form", {})
     ctx = (f"Entreprenören (Du): {form.get('me', '')}\nMotparten: {form.get('who', '')}\n"
            f"Mål med samtalet: {form.get('goal', '')}\nVad som säljs: {form.get('product', '')}\n"
            f"Pris: {form.get('price', '')}\nArgument: {form.get('args', '')}\nInvändningar/övrigt: {form.get('notes', '')}\n")
     lines = "\n".join(f"[{_clock(l.get('t'))}] {l['who']}: {l['text']}" for l in rec.get("transcript", []))
-    client = OpenAI(api_key=key, timeout=180)
-    base = dict(model=SUMMARY_MODEL, instructions=SUMMARY_PROMPT + "\nBakgrund:\n" + ctx,
-                input=f"Transkription av samtalet:\n{lines}")
-    try:
-        r = client.responses.create(**base, text={"format": {
-            "type": "json_schema", "name": "samtalsanalys", "schema": SUMMARY_SCHEMA, "strict": True}})
-    except Exception as e:
-        # Modellen kanske inte stöder strukturerat svar: be om JSON i texten i stället.
-        if not any(w in str(e).lower() for w in ("format", "schema", "json")):
-            raise
-        log("summering: strukturerat svar stöds inte, försöker med fri JSON:", str(e)[:160])
-        base["instructions"] += ("\nSvara ENDAST med ett JSON-objekt med exakt dessa fält: "
-                                 + json.dumps(SUMMARY_SCHEMA["properties"], ensure_ascii=False))
-        r = client.responses.create(**base)
-    raw = r.output_text or ""
-    data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+    data = llm.analyze(SUMMARY_PROMPT + "\nBakgrund:\n" + ctx, f"Transkription av samtalet:\n{lines}", SUMMARY_SCHEMA)
     # Säkra upp fälten så att gränssnittet alltid får något rimligt.
     data["score"] = max(0, min(100, int(data.get("score") or 0)))
     for k in ("they_said", "you_said", "objections", "todos", "strengths", "improvements"):
@@ -673,12 +782,15 @@ def summarize_call(key: str, rec: dict) -> dict:
     for td in data["todos"]:
         td["done"] = False
     data.setdefault("follow_up_email", {"subject": "", "body": ""})
-    data["model"] = SUMMARY_MODEL
+    data["model"] = llm.model if llm.kind == "local" else SUMMARY_MODEL
+    data["engine"] = llm.kind
     return data
 
 
 def set_topmost(on: bool) -> None:
     """Alltid överst via Windows direkt, asynkront (pywebviews on_top kan låsa sig)."""
+    if not IS_WIN:
+        return
     import ctypes
     user32 = ctypes.windll.user32
     found = app_windows()
@@ -711,6 +823,10 @@ class Api:
         self.call: dict | None = None        # pågående samtal: transkription och förslag
         self._call_lock = threading.Lock()
         self._last_save = 0.0
+        self.ol = E.Ollama()
+        self._dl: threading.Thread | None = None       # pågående modellnedladdning (uppstartsguiden)
+        self._dl_cancel = threading.Event()
+        self._test_busy = False
         # Alla fönsteranrop (JS, storlek, överst) går genom EN tråd, i tur och ordning.
         # Annars kan nivåmätaren och Avsluta vänta på varandra och låsa fönstret.
         self._uiq: queue.Queue = queue.Queue()
@@ -743,17 +859,58 @@ class Api:
         done.wait(timeout)
         return box[0] if box else None
 
+    # ---------- profil och motorer
+    def _profile(self) -> dict:
+        """Valen från uppstartsguiden. Den som redan använder appen (har formulär eller nyckel) hoppar över guiden."""
+        p = self.cfg.get("profile")
+        if p is not None:
+            return p
+        legacy = bool(self.cfg.get("form") or self.cfg.get("openai_api_key")
+                      or os.environ.get("OPENAI_API_KEY") or env_file_key())
+        return {"done": True, "engine": "cloud", "quality": "best", "migrated": True} if legacy else {"done": False}
+
+    def _make_transcriber(self, prof: dict, key: str):
+        """Tal-till-text enligt profilen: molnet eller lokal Whisper."""
+        if prof.get("engine") == "local":
+            preset = E.stt_preset(prof.get("stt", ""))
+            path = E.whisper_dir(MODELS_DIR, preset["id"]) if preset else ""
+            if not preset or not E.whisper_installed(path):
+                raise RuntimeError("Whisper-modellen är inte nedladdad. Öppna inställningarna (kugghjulet) och ladda ner den.")
+            return E.get_whisper(path, preset["beam"])
+        if not key:
+            raise RuntimeError("Lägg in en OpenAI API-nyckel först.")
+        return CloudTranscriber(key, STT_BY_TIER.get(prof.get("quality", "balanced"), STT_MODELS))
+
+    def _make_llm(self, prof: dict, key: str):
+        """Textmodell enligt profilen: molnet eller en lokal modell via Ollama."""
+        if prof.get("engine") == "local":
+            tag = prof.get("llm", "")
+            if not tag:
+                raise RuntimeError("Ingen textmodell vald. Öppna inställningarna.")
+            if not self.ol.start():
+                raise RuntimeError("Ollama går inte att starta. Installera eller starta Ollama och försök igen.")
+            if not self.ol.has(tag):
+                raise RuntimeError(f"Textmodellen {tag} är inte nedladdad. Öppna inställningarna och ladda ner den.")
+            return E.LocalLLM(self.ol, tag)
+        if not key:
+            raise RuntimeError("Lägg in en OpenAI API-nyckel först.")
+        return CloudLLM(key)
+
     # ---------- formulär
     def init(self):
         mics, loops, def_mic, def_loop = list_devices()
+        prof = self._profile()
         return {
             "form": self.cfg.get("form", {}),
             "mode": self.cfg.get("mode", "computer"),
             "mics": mics, "loops": loops,
             "mic": self.cfg.get("mic") if self.cfg.get("mic") in mics else def_mic,
             "loop": self.cfg.get("loop") if self.cfg.get("loop") in loops else def_loop,
-            "needKey": not (os.environ.get("OPENAI_API_KEY") or env_file_key()),
+            "needKey": prof.get("engine") != "local" and not (os.environ.get("OPENAI_API_KEY") or env_file_key()),
             "hasSavedKey": bool(self.cfg.get("openai_api_key")),
+            "setupDone": bool(prof.get("done")),
+            "profile": prof,
+            "platform": "windows" if IS_WIN else "mac" if IS_MAC else "linux",
         }
 
     def save(self, data):
@@ -772,21 +929,24 @@ class Api:
             data["mic"], data["loop"] = data.get("mic") or def_mic, data.get("loop") or def_loop
         self.save(data)
         key = api_key(self.cfg)
-        if not key:
-            return {"ok": False, "error": "Lägg in en OpenAI API-nyckel först."}
+        prof = self._profile()
         self.phone = self.cfg["mode"] == "phone"
         try:
+            tr = self._make_transcriber(prof, key)
+            llm = self._make_llm(prof, key)
+            if hasattr(tr, "warm"):
+                tr.warm()    # lokal Whisper laddas in i minnet nu, inte mitt i första repliken
             hints = make_hints(self.cfg["form"])
             # Telefonläge: du håller en knapp när motparten pratar, så talaren är känd (ingen gissning).
-            self.coach = Coach(key, self.cfg["form"], self.emit, phone=False)
+            self.coach = Coach(llm, self.cfg["form"], self.emit, phone=False)
             self.coach.warmup()
             if self.phone:   # telefon på högtalare: allt hörs i mikrofonen
-                src = Source("Samtal", self.cfg["mic"], key, self.emit, hints)
+                src = Source("Samtal", self.cfg["mic"], key, self.emit, hints, tr)
                 src.ptt = True
                 self.sources = [src]
             else:
-                self.sources = [Source("Motpart", self.cfg["loop"], key, self.emit, hints),
-                                Source("Du", self.cfg["mic"], key, self.emit, hints)]
+                self.sources = [Source("Motpart", self.cfg["loop"], key, self.emit, hints, tr),
+                                Source("Du", self.cfg["mic"], key, self.emit, hints, tr)]
             for s in self.sources:
                 s.start()
         except Exception as e:
@@ -816,6 +976,186 @@ class Api:
             return {"id": None}
         threading.Thread(target=self._summarize, args=(rec,), daemon=True).start()
         return {"id": rec["id"]}
+
+    # ---------- uppstartsguiden
+    def _push(self, **d):
+        """Skicka en händelse till uppstartsguiden i gränssnittet."""
+        self._js("setup", None, d)
+
+    def setup_info(self):
+        """Allt guiden behöver veta: datorn, förvalda modeller, vad som redan är nedladdat, Ollama och sparade val."""
+        return {
+            "system": E.system_info(CONFIG_DIR),
+            "profile": self._profile(),
+            "hasKey": bool(api_key(self.cfg)),
+            "stt": [dict(p, installed=E.whisper_installed(E.whisper_dir(MODELS_DIR, p["id"]))) for p in E.STT_PRESETS],
+            "llm": [dict(p) for p in E.LLM_PRESETS],
+            "ollama": self.setup_ollama(),
+        }
+
+    def setup_ollama(self):
+        exe = E.Ollama.binary()
+        running = bool(exe) and self.ol.running()
+        models = []
+        if running:
+            try:
+                models = self.ol.models()
+            except Exception:
+                pass
+        return {"installed": bool(exe), "running": running, "models": models}
+
+    def setup_ollama_start(self):
+        """Starta Ollama (tar några sekunder) och returnera läget."""
+        self.ol.start()
+        return self.setup_ollama()
+
+    def setup_open(self, which):
+        import webbrowser
+        urls = {"ollama": "https://ollama.com/download", "openai_keys": "https://platform.openai.com/api-keys"}
+        if which in urls:
+            webbrowser.open(urls[which])
+        return which in urls
+
+    def setup_check_key(self, key):
+        """Kontrollera en OpenAI-nyckel och vilka av appens modeller kontot kommer åt."""
+        key = (key or "").strip() or api_key(self.cfg)       # tom = kontrollera den redan sparade nyckeln
+        if not key:
+            return {"ok": False, "error": "Skriv in en nyckel."}
+        client = OpenAI(api_key=key, timeout=15, max_retries=0)
+        want = {"transcribe": ["gpt-4o-transcribe", "whisper-1"], "coach": [COACH_MODEL], "summary": [SUMMARY_MODEL]}
+        avail = {}
+        try:
+            for part, ids in want.items():
+                avail[part] = False
+                for mid in ids:
+                    try:
+                        client.models.retrieve(mid)
+                        avail[part] = True
+                        break
+                    except Exception as e:
+                        if getattr(e, "status_code", None) in (401, 403) and "model" not in str(e).lower():
+                            raise
+            return {"ok": True, "models": avail}
+        except Exception as e:
+            code = getattr(e, "status_code", None)
+            msg = "Nyckeln stämmer inte. Kolla att du kopierat hela." if code == 401 else f"Kunde inte kontrollera nyckeln: {e}"
+            return {"ok": False, "error": msg[:240]}
+
+    def setup_download(self, stt_id, llm_tag):
+        """Ladda ner valda modeller i bakgrunden. Framsteg kommer som 'setup'-händelser till gränssnittet."""
+        if self._dl and self._dl.is_alive():
+            return False
+        self._dl_cancel.clear()
+        self._dl = threading.Thread(target=self._download_worker, args=(stt_id, llm_tag), daemon=True)
+        self._dl.start()
+        return True
+
+    def setup_cancel(self):
+        self._dl_cancel.set()
+        return True
+
+    def _download_worker(self, stt_id, tag):
+        last = [0.0]
+
+        def push(part, state, done=0, total=0, **kw):
+            now = time.perf_counter()
+            if state == "running" and now - last[0] < 0.12:
+                return
+            last[0] = now
+            self._push(stage="dl", part=part, state=state, done=done, total=total, **kw)
+
+        try:
+            preset = E.stt_preset(stt_id) if stt_id else None
+            if preset:
+                path = E.whisper_dir(MODELS_DIR, preset["id"])
+                if E.whisper_installed(path):
+                    push("stt", "ready", 1, 1)
+                else:
+                    push("stt", "running", 0, preset["mb"] * 1048576)
+                    E.download_whisper(preset["repo"], path,
+                                       lambda d, t, n: push("stt", "running", d, t, file=n), self._dl_cancel)
+                    push("stt", "ready", 1, 1)
+            if tag:
+                push("llm", "starting")
+                if not self.ol.start():
+                    raise RuntimeError("Ollama startade inte. Installera Ollama och försök igen.")
+                if self.ol.has(tag):
+                    push("llm", "ready", 1, 1)
+                else:
+                    self.ol.pull(tag, lambda d, t, s: push("llm", "running", d, t, status=s), self._dl_cancel)
+                    push("llm", "ready", 1, 1)
+            self._push(stage="dl_done")
+        except E.Cancelled:
+            self._push(stage="dl_cancelled")
+        except Exception as e:
+            log("nedladdning fel:", repr(e)[:300])
+            self._push(stage="dl_error", error=str(e)[:300])
+
+    def setup_save(self, profile, key=""):
+        """Spara guidens val. Namn och mål fyller i formuläret så att man slipper skriva det igen."""
+        goal_map = {"sell": "Sälja", "meetings": "Boka möte", "objections": "Sälja", "learn": "Följa upp"}
+        labels = {"sell": "sälja mer", "meetings": "boka fler möten", "objections": "hantera invändningar",
+                  "learn": "lära sig av varje samtal"}
+        goals = [g for g in (profile.get("goals") or []) if g in goal_map]
+        p = {"done": True, "name": str(profile.get("name", "")).strip()[:80],
+             "company": str(profile.get("company", "")).strip()[:80], "goals": goals,
+             "quality": profile.get("quality") if profile.get("quality") in ("fast", "balanced", "best") else "balanced",
+             "engine": "local" if profile.get("engine") == "local" else "cloud"}
+        if p["engine"] == "local":
+            p["stt"] = profile.get("stt") if E.stt_preset(profile.get("stt", "")) else E.preset_for_tier(E.STT_PRESETS, p["quality"])["id"]
+            p["llm"] = str(profile.get("llm") or E.preset_for_tier(E.LLM_PRESETS, p["quality"])["tag"])[:80]
+        form = self.cfg.setdefault("form", {})
+        me = ", ".join(x for x in (p["name"], p["company"]) if x)
+        if me:
+            form["me"] = me
+        first = next((g for g in goals if g in ("sell", "meetings")), goals[0] if goals else None)
+        if first:
+            form["goal"] = goal_map[first]
+        form["focus"] = ", ".join(labels[g] for g in goals)
+        if key and key.strip():
+            self.cfg["openai_api_key"] = key.strip()
+        self.cfg["profile"] = p
+        save_config(self.cfg)
+        return True
+
+    def setup_test(self, profile, key=""):
+        """Spela in några sekunder, skriv ut med vald motor och visa texten och hur lång tid det tog."""
+        if self._test_busy:
+            return False
+        self._test_busy = True
+        threading.Thread(target=self._test_worker, args=(profile, key), daemon=True).start()
+        return True
+
+    def _test_worker(self, prof, key):
+        try:
+            key = (key or "").strip() or api_key(self.cfg)
+            tr = self._make_transcriber(prof, key)
+            self._push(stage="test_loading")
+            if hasattr(tr, "warm"):
+                tr.warm()
+            mics, _, def_mic, _ = list_devices()
+            dev = self.cfg.get("mic") if self.cfg.get("mic") in mics else def_mic
+            self._push(stage="test_rec")
+            last = [0.0]
+
+            def level(v):
+                if time.perf_counter() - last[0] > 0.08:
+                    last[0] = time.perf_counter()
+                    self._push(stage="level", v=round(v, 3))
+            audio = record_clip(dev, 5.0, level)
+            self._push(stage="test_trans")
+            t0 = time.perf_counter()
+            text = tr.transcribe(audio, "Svenskt säljsamtal.")
+            dt = time.perf_counter() - t0
+            if text and (is_garbage(text) or E.is_hallucination(text)):
+                text = ""
+            peak = float(np.max(np.abs(audio))) if len(audio) else 0.0
+            self._push(stage="test_done", text=text, secs=round(dt, 2), peak=round(peak), device=dev)
+        except Exception as e:
+            log("test fel:", repr(e)[:300])
+            self._push(stage="test_error", error=str(e)[:300])
+        finally:
+            self._test_busy = False
 
     # ---------- samtalslogg och analys
     def _record(self, who, text):
@@ -857,10 +1197,11 @@ class Api:
     def _summarize(self, rec):
         key = api_key(self.cfg)
         try:
-            if not key:
-                raise RuntimeError("Ingen OpenAI API-nyckel.")
-            rec["summary"], rec["summary_error"] = summarize_call(key, rec), None
-            log("summering klar:", rec["id"], "poäng", rec["summary"].get("score"))
+            llm = self._make_llm(self._profile(), key)
+            t0 = time.perf_counter()
+            rec["summary"], rec["summary_error"] = summarize_call(llm, rec), None
+            log("summering klar:", rec["id"], "poäng", rec["summary"].get("score"),
+                f"({llm.kind}, {time.perf_counter() - t0:.1f} s)")
         except Exception as e:
             rec["summary_error"] = str(e)[:400]
             log("summering fel:", rec["id"], repr(e)[:300])
@@ -1026,7 +1367,30 @@ class Api:
             time.sleep(0.12)
 
 
+def selftest():
+    """SC_SELFTEST=<fil>: kontrollerar att Whisper-biblioteken fungerar i den här bygget (används av byggtester)."""
+    out = {}
+    try:
+        import faster_whisper
+        import ctranslate2
+        out["faster_whisper"], out["ctranslate2"] = faster_whisper.__version__, ctranslate2.__version__
+        mp = os.environ.get("SC_SELFTEST_MODEL")
+        if mp:
+            w = E.LocalWhisper(mp, 1)
+            w.load(force_cpu=True)
+            out["tystnad_ger"] = repr(w.transcribe(np.zeros(48000, dtype=np.float32), ""))
+            out["enhet"] = w.device
+        out["ok"] = True
+    except Exception as e:
+        out["fel"] = repr(e)
+    with open(os.environ["SC_SELFTEST"], "w", encoding="utf-8") as f:
+        f.write(json.dumps(out, ensure_ascii=False))
+    os._exit(0)
+
+
 def main():
+    if os.environ.get("SC_SELFTEST"):
+        selftest()
     import faulthandler
     try:
         os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -1085,6 +1449,20 @@ def main():
                 log("test: efter Avsluta, klickar X")
                 api._ui_sync(lambda: api._win.evaluate_js('document.querySelector(".winbtns .x").click()'))
         webview.start(_auto)
+    elif os.environ.get("SC_SEQ"):   # för tester: kör JavaScript i fönstret enligt en tidslinje (JSON-fil)
+        def _seq():
+            steps = json.load(open(os.environ["SC_SEQ"], encoding="utf-8-sig"))
+            t0 = time.time()
+            for st in steps:
+                time.sleep(max(0.0, st["at"] - (time.time() - t0)))
+                try:
+                    res = api._ui_sync(lambda js=st["js"]: api._win.evaluate_js(js), timeout=60)
+                except Exception as e:
+                    res = f"FEL: {e!r}"
+                if st.get("out"):
+                    with open(st["out"], "w", encoding="utf-8") as f:
+                        f.write(json.dumps(res, ensure_ascii=False))
+        webview.start(_seq)
     elif os.environ.get("SC_OPENCALL"):  # för designkontroll: öppna ett sparat samtals analys
         def _open():
             time.sleep(3)

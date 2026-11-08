@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="onboard.css">
 <style>
   :root {
     --bg: #FAF8F5;
@@ -571,13 +572,35 @@
   </div>
 </header>
 
+<!-- ================= Uppstartsguide (första starten, och via Inställningar) ================= -->
+<main id="onboard" class="view" aria-label="Uppstart">
+  <div class="ob-horizon" aria-hidden="true"></div>
+  <div class="ob-stage">
+    <div class="ob-top">
+      <button class="ob-link" id="obBack" type="button" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Tillbaka</button>
+      <div class="ob-eq" id="obEq" aria-hidden="true"><i style="--k:0"></i><i style="--k:1"></i><i style="--k:2"></i><i style="--k:3"></i><i style="--k:4"></i></div>
+      <button class="ob-link" id="obClose" type="button" hidden>Stäng</button>
+    </div>
+    <div class="ob-body" id="obBody"></div>
+    <div class="ob-foot">
+      <span class="ob-hint" id="obHint"></span>
+      <button class="cta" id="obNext" type="button" hidden><span id="obNextTxt">Fortsätt</span><span class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>
+    </div>
+  </div>
+</main>
+
 <!-- ================= Startformulär ================= -->
 <main id="setup" class="view on">
   <div class="content">
     <div class="hero">
-      <button class="pillbtn histbtn" id="histBtn" type="button">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Tidigare samtal
-      </button>
+      <div class="hero-actions">
+        <button class="pillbtn histbtn" id="setBtn" type="button" title="Ändra namn, motor och modeller">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>Inställningar
+        </button>
+        <button class="pillbtn histbtn" id="histBtn" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Tidigare samtal
+        </button>
+      </div>
       <h1>Vem ringer du <em>idag?</em></h1>
       <p>Fyll i en gång. Allt sparas till nästa samtal.</p>
       <div class="ident">
@@ -792,6 +815,11 @@ function boot() {
 }
 async function load() {
   const s = await pywebview.api.init();
+  window.__init = s;
+  if (!s.setupDone) {                       // första starten: uppstartsguiden
+    for (let k = 0; k < 60 && typeof startOnboarding !== "function"; k++) await new Promise(r => setTimeout(r, 50));
+    if (typeof startOnboarding === "function") startOnboarding();
+  }
   FIELDS.forEach(f => $(f).value = s.form[f] || "");
   setGoal(s.form.goal || "Boka möte");
   setMode(s.mode);
@@ -863,7 +891,7 @@ $("forceBtn").onclick = force;
 
 document.addEventListener("keydown", (e) => {
   if (!live && e.ctrlKey && e.key === "Enter" && $("setup").classList.contains("on")) { start(); return; }
-  if (!live && e.key === "Escape" && !$("setup").classList.contains("on")) { showView("setup"); return; }
+  if (!live && e.key === "Escape" && !$("setup").classList.contains("on") && !(typeof OB !== "undefined" && OB.on)) { showView("setup"); return; }
   if (!live || e.target.matches("input, textarea")) return;
   if (e.code === "Space") { e.preventDefault(); if (!e.repeat) pttDown(); return; }
   const k = e.key.toLowerCase();
@@ -1008,7 +1036,7 @@ document.querySelectorAll(".tile").forEach(t => t.addEventListener("pointermove"
 
 // ================= Vyer =================
 function showView(id) {
-  ["setup", "live", "summary", "history"].forEach(v => $(v).classList.toggle("on", v === id));
+  ["setup", "live", "summary", "history", "onboard"].forEach(v => $(v).classList.toggle("on", v === id));
 }
 
 // ================= Analys efter samtalet =================
@@ -1262,6 +1290,7 @@ async function openHistory() {
   });
 }
 $("histBtn").onclick = openHistory;
+$("setBtn").onclick = () => startOnboarding({ rerun: true });
 $("histBack").onclick = () => showView("setup");
 
 function dismissConsent(el) {
@@ -1281,7 +1310,9 @@ function setBars(el, v) {
 }
 
 function onEvent(e) {
-  if (e.kind === "summary") {
+  if (e.kind === "setup") {
+    obEvent(e.data);
+  } else if (e.kind === "summary") {
     if (e.data && e.data.id === sumId && $("summary").classList.contains("on")) renderSummary(e.data, false);
   } else if (e.kind === "levels") {
     setBars($("vYou"), e.data["Du"] || 0);
@@ -1338,5 +1369,6 @@ $("pttBtn").addEventListener("lostpointercapture", pttUp);
 document.addEventListener("keyup", (e) => { if (e.code === "Space") { e.preventDefault(); pttUp(); } });
 window.addEventListener("blur", pttUp);   // tappar fönstret fokus mitt i: släpp
 </script>
+<script src="onboard.js"></script>
 </body>
 </html>

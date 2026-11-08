@@ -1,5 +1,7 @@
 numpy==2.5.4
 openai==3.46.0
-PyAudioWPatch==0.2.12.9
+PyAudioWPatch==0.2.12.9; sys_platform == "win32"
+PyAudio; sys_platform == "darwin"
 pywebview==6.2.1
+faster-whisper==1.2.1
 pyinstaller==6.22.3
