@@ -357,7 +357,7 @@ class Source:
 def make_hints(form: dict) -> dict:
     """Ordlista till tal-till-text: namn och produktord som annars lätt stavas fel."""
     import re
-    text = " ".join(str(form.get(k, "")) for k in ("who", "product", "args", "notes"))
+    text = " ".join(str(form.get(k, "")) for k in ("who", "me", "product", "args", "notes"))
     words, seen = [], set()
     for w in re.findall(r"[A-Za-zÅÄÖåäöÉé][\w\-]{2,}", text):
         if (w[0].isupper() or "-" in w) and w.lower() not in seen:
@@ -385,8 +385,10 @@ def build_instructions(form: dict, phone: bool = False) -> str:
         "nästa sak att säga högt, på naturlig talad svenska, max 25 ord, utan citattecken. "
         "Var konkret, vänlig och driv mot målet. Hantera invändningar med en kort fråga eller "
         "ett argument från listan. Hitta aldrig på fakta, priser eller löften som inte står nedan. "
-        "Använd aldrig platshållare som [ditt namn]; skriv runt det i stället.\n"
+        "Använd aldrig platshållare som [ditt namn]. Behövs namn eller företag (t.ex. om motparten "
+        "frågar vem det är), använd det som står under 'Du är'. Står inget där, skriv runt det.\n"
         "Format: rad 1 = förslaget. Sedan högst 2 korta alternativ, varsin rad som börjar med '- '.\n\n"
+        f"Du är: {form.get('me', '')}\n"
         f"Vem som rings: {form.get('who', '')}\n"
         f"Syfte: {form.get('goal', '')}\n"
         f"Vad som säljs: {form.get('product', '')}\n"
@@ -469,8 +471,8 @@ class Coach:
             self.on_event("error", "AI", str(e))
 
 
-def set_topmost(on: bool) -> None:
-    """Alltid överst via Windows direkt, asynkront (pywebviews on_top kan låsa sig)."""
+def app_windows() -> list:
+    """Appens synliga toppfönster (titel Viska) i den här processen."""
     import ctypes
     from ctypes import wintypes
     user32 = ctypes.windll.user32
@@ -489,6 +491,52 @@ def set_topmost(on: bool) -> None:
         return True
 
     user32.EnumWindows(cb, 0)
+    return found
+
+
+def set_window_alpha(alpha: int, hwnds=None) -> list:
+    """Sätt hela fönstrets genomskinlighet (0-255) via layered window."""
+    import ctypes
+    user32 = ctypes.windll.user32
+    GWL_EXSTYLE, WS_EX_LAYERED, LWA_ALPHA = -20, 0x80000, 0x2
+    hwnds = app_windows() if hwnds is None else hwnds
+    for h in hwnds:
+        user32.SetWindowLongW(h, GWL_EXSTYLE, user32.GetWindowLongW(h, GWL_EXSTYLE) | WS_EX_LAYERED)
+        user32.SetLayeredWindowAttributes(h, 0, max(0, min(255, int(alpha))), LWA_ALPHA)
+    return hwnds
+
+
+def fade_out_window(duration: float = 0.38, ease_in: bool = False) -> None:
+    """Tona ut hela fönstret, t.ex. innan appen stängs eller minimeras.
+    ease_in=True: långsamt i början, snabbt på slutet (så genie-formen hinner synas)."""
+    hwnds = set_window_alpha(255)
+    t0 = time.perf_counter()
+    while True:
+        p = min(1.0, (time.perf_counter() - t0) / duration)
+        a = 1 - p ** 2.2 if ease_in else (1 - p) ** 2
+        set_window_alpha(255 * a, hwnds)
+        if p >= 1.0:
+            break
+        time.sleep(0.012)
+
+
+def fade_in_window(duration: float = 0.34) -> None:
+    """Tona in fönstret från osynligt till helt synligt."""
+    hwnds = app_windows()
+    t0 = time.perf_counter()
+    while True:
+        p = min(1.0, (time.perf_counter() - t0) / duration)
+        set_window_alpha(255 * (1 - (1 - p) ** 3), hwnds)
+        if p >= 1.0:
+            break
+        time.sleep(0.012)
+
+
+def set_topmost(on: bool) -> None:
+    """Alltid överst via Windows direkt, asynkront (pywebviews on_top kan låsa sig)."""
+    import ctypes
+    user32 = ctypes.windll.user32
+    found = app_windows()
     HWND_TOPMOST, HWND_NOTOPMOST = -1, -2
     flags = 0x0001 | 0x0002 | 0x0010 | 0x4000   # NOSIZE | NOMOVE | NOACTIVATE | ASYNCWINDOWPOS
     for h in found:
@@ -513,6 +561,8 @@ class Api:
         self.paused = False
         self.phone = False
         self._win = None
+        self._alpha_hidden = False          # fönstret är osynligt (alpha 0) efter minimering
+        self._alpha_lock = threading.Lock()
         # Alla fönsteranrop (JS, storlek, överst) går genom EN tråd, i tur och ordning.
         # Annars kan nivåmätaren och Avsluta vänta på varandra och låsa fönstret.
         self._uiq: queue.Queue = queue.Queue()
@@ -610,12 +660,49 @@ class Api:
         return True
 
     def minimize(self):
-        self._ui(self._win.minimize)
+        """Genie-effekten spelas i JS; här tonar vi ut fönstret, minimerar och återställer opaciteten."""
+        def go():
+            try:
+                fade_out_window(0.42, ease_in=True)
+            except Exception as e:
+                log("minimera-fade fel:", repr(e))
+            # Fönstret förblir osynligt medan det är minimerat; det tonas in igen vid återställning.
+            # (Annars blinkar en grå ruta medan WebView2 ritar om.)
+            self._alpha_hidden = True
+            self._ui_sync(self._win.minimize)
+        threading.Thread(target=go, daemon=True).start()
+
+    def on_restored(self, *_):
+        self._ui(lambda: self._win.evaluate_js("restoredApp()"), "restored")
+        self.ensure_visible()
+
+    def ensure_visible(self):
+        """Tona in fönstret igen efter minimering. Anropas både från Python och JS, så det sker säkert."""
+        with self._alpha_lock:
+            if not self._alpha_hidden:
+                return
+            self._alpha_hidden = False
+
+        def go():
+            time.sleep(0.06)     # låt WebView2 hinna rita först
+            try:
+                fade_in_window(0.34)
+            except Exception as e:
+                log("fade-in fel:", repr(e))
+                try:
+                    set_window_alpha(255)
+                except Exception:
+                    pass
+        threading.Thread(target=go, daemon=True).start()
 
     def close(self):
         log("close(): stänger appen")
         for s in self.sources:
             s.stop.set()
+        try:
+            fade_out_window(float(os.environ.get("SC_FADE_SECS", "0.38")))
+        except Exception as e:
+            log("fade-fel:", repr(e))
         # Ljudtrådar kan sitta fast i en blockerande läsning och fönstret kan låsa sig vid
         # stängning, så avsluta processen direkt. Allt viktigt är redan sparat vid Start.
         os._exit(0)
@@ -688,8 +775,22 @@ def main():
     api = Api()
     api._win = webview.create_window(APP_NAME, resource("ui", "index.html"), js_api=api,
                                        width=SETUP_W, height=SETUP_H, min_size=(420, 300),
-                                       frameless=True, easy_drag=False,
+                                       frameless=True, easy_drag=False, hidden=True,
                                        background_color="#FAF8F5")
+    # Visa fönstret först när sidan har laddat (annars syns en mörk ruta medan WebView2 startar),
+    # och starta då introt. Säkerhetsnät: visa ändå efter 6 s.
+    shown = threading.Event()
+
+    def reveal(*_):
+        if shown.is_set():
+            return
+        shown.set()
+        log("visar fönstret")
+        api._ui(lambda: (api._win.show(), api._win.evaluate_js("startIntro()")), "show")
+
+    api._win.events.loaded += reveal
+    api._win.events.restored += api.on_restored
+    threading.Timer(6.0, reveal).start()
     demo = os.environ.get("SC_DEMO")  # visar live-läget med påhittad data, för designkontroll
     if demo:
         def _demo():
@@ -722,6 +823,20 @@ def main():
                 log("test: efter Avsluta, klickar X")
                 api._ui_sync(lambda: api._win.evaluate_js('document.querySelector(".winbtns .x").click()'))
         webview.start(_auto)
+    elif os.environ.get("SC_TESTMIN"):  # för designkontroll: minimera, återställ, stäng
+        def _min():
+            time.sleep(3)
+            api._ui_sync(lambda: api._win.evaluate_js("minimizeApp()"))
+            time.sleep(2)
+            api._ui_sync(api._win.restore)
+            time.sleep(2.5)
+            api._ui_sync(lambda: api._win.evaluate_js("quit()"))
+        webview.start(_min)
+    elif os.environ.get("SC_TESTQUIT"):  # för designkontroll: spelar avslutningen efter 3 s
+        def _quit():
+            time.sleep(3)
+            api._ui_sync(lambda: api._win.evaluate_js("quit()"))
+        webview.start(_quit)
     else:
         webview.start()
     os._exit(0)   # fönstret är stängt: avsluta direkt även om ljudtrådar fortfarande blockerar

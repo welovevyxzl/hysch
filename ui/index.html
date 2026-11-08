@@ -67,8 +67,10 @@
   .hero h1 { font-size: 40px; line-height: 1.05; font-weight: 600; letter-spacing: -.035em; }
   .hero h1 em { font-style: normal; color: var(--violet); }
   .hero p { color: var(--ink-2); font-size: 15px; margin-top: 10px; }
+  .ident { margin-top: 22px; display: grid; grid-template-columns: 1.55fr 1fr; gap: 12px; }
+  .ident .sub { padding-left: 4px; }
   .who {
-    margin-top: 22px; width: 100%; border: 0; outline: none; background: var(--glass);
+    width: 100%; border: 0; outline: none; background: var(--glass);
     backdrop-filter: blur(20px); border-radius: 18px; padding: 18px 20px; font-size: 20px; font-weight: 500;
     box-shadow: 0 0 0 1px var(--line), 0 10px 30px -18px rgba(18,15,36,.25); transition: box-shadow .2s var(--ease);
   }
@@ -219,7 +221,7 @@
 
   #setup.on .hero h1 { animation: rise-in .8s var(--smooth) .04s backwards; }
   #setup.on .hero p { animation: rise-in .8s var(--smooth) .10s backwards; }
-  #setup.on .who { animation: rise-in .8s var(--smooth) .16s backwards; }
+  #setup.on .ident { animation: rise-in .8s var(--smooth) .16s backwards; }
   #setup.on .tile { animation: rise-in .8s var(--smooth) backwards; }
   #setup.on .tile:nth-child(1) { animation-delay: .22s; }
   #setup.on .tile:nth-child(2) { animation-delay: .28s; }
@@ -279,13 +281,146 @@
     background-size: 250% 100%; animation: shimmer 1.8s linear infinite; }
   @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0% 0; } }
 
+  /* ================= Stora loggan (intro och avslutning) ================= */
+  .bigmark { position: relative; width: 84px; height: 84px; border-radius: 26px; display: flex; align-items: center;
+    justify-content: center; gap: 5px; background: linear-gradient(140deg, var(--violet-2), var(--violet));
+    box-shadow: 0 24px 56px -16px rgba(91,61,245,.7), inset 0 1px 0 rgba(255,255,255,.3); }
+  .bigmark b { width: 5px; border-radius: 3px; background: #fff; }
+  .bigmark b:nth-child(1) { height: 15px; } .bigmark b:nth-child(2) { height: 28px; } .bigmark b:nth-child(3) { height: 40px; }
+  .bigmark b:nth-child(4) { height: 26px; } .bigmark b:nth-child(5) { height: 13px; }
+  .markwrap { position: relative; }
+  .flare { position: absolute; left: 50%; top: 50%; width: 380px; height: 380px; margin: -190px 0 0 -190px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(139,108,255,.42), rgba(139,108,255,.12) 55%, rgba(139,108,255,0)); opacity: 0; pointer-events: none; }
+  @keyframes mark-in { from { opacity: 0; transform: scale(.25) rotate(-16deg); filter: blur(10px); } }
+  @keyframes wake { 0% { transform: scaleY(.1); } 55% { transform: scaleY(1.35); } 80% { transform: scaleY(.85); } 100% { transform: scaleY(1); } }
+  @keyframes wave { 0% { transform: scaleY(.25); } 20% { transform: scaleY(1.3); } 40% { transform: scaleY(.55); } 60% { transform: scaleY(1.18); } 80% { transform: scaleY(.75); } 100% { transform: scaleY(1); } }
+
+  /* ================= Intro: rösten vaknar, sedan zoomar vi in genom loggan ================= */
+  .intro { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; background: var(--bg); }
+  body.intro-on .intro { display: flex; }
+  body.intro-on:not(.intro-play) .intro-stack { opacity: 0; }   /* tom bakgrund tills fönstret visas */
+  body.intro-play .intro .flare { animation: flare-in 1.6s var(--smooth) backwards; opacity: 1; }
+  @keyframes flare-in { from { opacity: 0; transform: scale(.15); } }
+  .intro-stack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  body.intro-play .intro .bigmark { animation: mark-in .9s var(--spring) .05s backwards; }
+  body.intro-play .intro .bigmark b { animation: wake .7s var(--smooth) backwards; }
+  .intro .bigmark b:nth-child(1) { animation-delay: .34s !important; } .intro .bigmark b:nth-child(2) { animation-delay: .41s !important; }
+  .intro .bigmark b:nth-child(3) { animation-delay: .48s !important; } .intro .bigmark b:nth-child(4) { animation-delay: .55s !important; }
+  .intro .bigmark b:nth-child(5) { animation-delay: .62s !important; }
+  .intro-word { font-size: 32px; font-weight: 600; letter-spacing: -.035em; color: var(--ink); }
+  body.intro-play .intro-word { animation: track-in 1.1s var(--smooth) .5s backwards; }
+  @keyframes track-in { from { opacity: 0; letter-spacing: .45em; filter: blur(8px); } }
+  body.intro-out .intro { animation: intro-fade .8s var(--smooth) .12s forwards; pointer-events: none; }
+  @keyframes intro-fade { to { opacity: 0; } }
+  body.intro-out .intro-stack { animation: zoom-through .8s cubic-bezier(.55,0,.25,1) forwards; }
+  @keyframes zoom-through { to { opacity: 0; transform: scale(4.5); filter: blur(22px); } }
+
+  /* ================= Avslutning: appen sugs in i loggan, rösten tystnar, ljuset slocknar ================= */
+  .outro { position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column; align-items: center;
+    justify-content: center; gap: 22px; pointer-events: none; }
+  body.exiting { pointer-events: none; }
+  body.exiting .outro { display: flex; }
+  body.exiting .view.on { animation: collapse .65s cubic-bezier(.6,0,.3,1) forwards; }
+  body.exiting .titlebar { animation: fade-out .3s var(--smooth) forwards; }
+  @keyframes collapse { to { opacity: 0; transform: scale(.55); filter: blur(18px); } }
+  @keyframes fade-out { to { opacity: 0; } }
+  body.exiting .aura { animation: aura-out 1.1s var(--smooth) forwards; }
+  @keyframes aura-out { to { opacity: 0; transform: scale(.5); } }
+
+  body.exiting .outro .bigmark { animation: mark-in .8s var(--spring) .18s backwards; }
+  body.exiting .outro .bigmark b { animation: wave 1s cubic-bezier(.45,0,.2,1) backwards; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(1) { animation-delay: .34s; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(2) { animation-delay: .40s; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(3) { animation-delay: .46s; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(4) { animation-delay: .52s; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(5) { animation-delay: .58s; }
+  .outro .bigmark::before, .outro .bigmark::after { content: ""; position: absolute; inset: 0; border-radius: inherit;
+    box-shadow: 0 0 0 1px rgba(91,61,245,.45); opacity: 0; }
+  body.exiting .outro .bigmark::before { animation: ripple 1.2s var(--smooth) .42s; }
+  body.exiting .outro .bigmark::after { animation: ripple 1.2s var(--smooth) .64s; }
+  @keyframes ripple { from { opacity: .7; transform: scale(1); } 60% { opacity: .15; } to { opacity: 0; transform: scale(2.5); } }
+  .outro-txt { font-size: 22px; font-weight: 600; letter-spacing: -.025em; color: var(--ink); }
+  body.exiting .outro-txt { animation: txt-in .7s var(--smooth) .45s backwards; }
+  @keyframes txt-in { from { opacity: 0; transform: translateY(8px); filter: blur(6px); } }
+
+  /* Andra akten: staplarna tystnar, loggan krymper in i ett ljus som slocknar */
+  body.exiting-2 .outro .bigmark b { animation: hush .32s var(--smooth) forwards; }
+  @keyframes hush { to { transform: scaleY(.13); } }
+  body.exiting-2 .outro .bigmark { animation: mark-out .5s cubic-bezier(.6,0,.4,1) .18s forwards; }
+  @keyframes mark-out { to { transform: scale(.15); opacity: 0; filter: blur(6px); } }
+  body.exiting-2 .outro-txt { animation: txt-out .4s var(--smooth) forwards; }
+  @keyframes txt-out { to { opacity: 0; transform: translateY(-6px); filter: blur(6px); } }
+  body.exiting-2 .outro .flare { animation: flare-out .75s var(--smooth) .22s forwards; }
+  @keyframes flare-out { 0% { opacity: 0; transform: scale(.2); } 35% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.7); } }
+
+  /* ================= Minimera: "genie" ner mot aktivitetsfältet, och tillbaka ================= */
+  body.minimizing { animation: genie-out .42s cubic-bezier(.55,0,.8,.2) forwards; transform-origin: 50% 100%; pointer-events: none; }
+  body.restoring { animation: genie-in .55s cubic-bezier(.2,.9,.25,1) both; transform-origin: 50% 100%; }
+  @keyframes genie-out {
+    0%   { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: none; opacity: 1; filter: blur(0); }
+    45%  { clip-path: polygon(4% 0, 96% 0, 64% 100%, 36% 100%); transform: translateY(8%) scaleY(.85); opacity: 1; }
+    100% { clip-path: polygon(42% 0, 58% 0, 51% 100%, 49% 100%); transform: translateY(75%) scaleY(.2); opacity: 0; filter: blur(4px); }
+  }
+  @keyframes genie-in {
+    0%   { clip-path: polygon(42% 0, 58% 0, 51% 100%, 49% 100%); transform: translateY(75%) scaleY(.2); opacity: 0; filter: blur(4px); }
+    55%  { clip-path: polygon(4% 0, 96% 0, 64% 100%, 36% 100%); transform: translateY(4%) scaleY(.92); opacity: 1; filter: blur(0); }
+    100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: none; opacity: 1; }
+  }
+
+  /* ================= Start: formuläret tonar bort medan vi ansluter ================= */
+  .launch { position: fixed; inset: 0; z-index: 40; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; font-size: 13.5px; font-weight: 500; color: var(--muted); pointer-events: none; }
+  body.launching .launch { display: flex; animation: fade-in .4s var(--smooth) .12s backwards; }
+  body.launching #setup.on { animation: launch-out .4s var(--smooth) forwards; }
+  @keyframes launch-out { to { opacity: 0; transform: scale(.97); filter: blur(10px); } }
+  .minibars { display: flex; align-items: center; gap: 4px; height: 26px; }
+  .minibars b { width: 4px; height: 24px; border-radius: 2px; background: var(--violet); animation: bounce 1s ease-in-out infinite; }
+  .minibars b:nth-child(2) { animation-delay: .1s; } .minibars b:nth-child(3) { animation-delay: .2s; }
+  .minibars b:nth-child(4) { animation-delay: .3s; } .minibars b:nth-child(5) { animation-delay: .4s; }
+  @keyframes bounce { 0%, 100% { transform: scaleY(.3); opacity: .5; } 50% { transform: scaleY(1); opacity: 1; } }
+
+  /* ================= Små detaljer ================= */
+  /* mjukt ljus som följer muspekaren över korten */
+  .tile { position: relative; isolation: isolate; }
+  .tile::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none; opacity: 0;
+    background: radial-gradient(280px circle at var(--mx, 50%) var(--my, 0%), rgba(139,108,255,.09), transparent 70%);
+    transition: opacity .5s var(--smooth); }
+  .tile:hover::before { opacity: 1; }
+  /* glansstrimma över startknappen */
+  .cta { position: relative; overflow: hidden; }
+  .cta::after { content: ""; position: absolute; inset: 0; pointer-events: none; transform: translateX(-130%);
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.2) 50%, transparent 70%); }
+  .cta:hover::after { transform: translateX(130%); transition: transform 1s var(--smooth); }
+  /* innehållet tonar mjukt i kanterna när man scrollar */
+  #setup .content { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 22px), transparent 100%); }
+  /* röstpillerna får en mjuk ring när någon pratar */
+  .voice.you.on { box-shadow: 0 0 0 3px rgba(16,185,129,.12); }
+  .voice.them.on { box-shadow: 0 0 0 3px rgba(255,106,77,.12); }
+  /* pausat: kortet vilar */
+  .stage { transition: box-shadow .6s var(--smooth), opacity .5s var(--smooth); }
+  body.paused .stage { opacity: .55; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
   }
 </style>
 </head>
-<body>
+<body class="intro-on">
 <div class="aura"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+<div class="intro" aria-hidden="true">
+  <div class="intro-stack">
+    <div class="markwrap"><div class="flare"></div><div class="bigmark"><b></b><b></b><b></b><b></b><b></b></div></div>
+    <div class="intro-word">Viska</div>
+  </div>
+</div>
+<div class="outro" aria-hidden="true">
+  <div class="markwrap"><div class="flare"></div><div class="bigmark"><b></b><b></b><b></b><b></b><b></b></div></div>
+  <div class="outro-txt">Vi hörs.</div>
+</div>
+<div class="launch" aria-hidden="true">
+  <div class="minibars"><b></b><b></b><b></b><b></b><b></b></div>
+  <span>Ansluter</span>
+</div>
 
 <header class="titlebar pywebview-drag-region">
   <div class="mark"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg></div>
@@ -298,8 +433,8 @@
     <span class="voice them" id="vThem"><span class="bars"><b></b><b></b><b></b></span><span id="vThemLbl">Motpart</span></span>
   </div>
   <div class="winbtns">
-    <button title="Minimera" onclick="pywebview.api.minimize()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
-    <button class="x" title="Stäng" onclick="pywebview.api.close()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <button title="Minimera" onclick="minimizeApp()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+    <button class="x" title="Stäng" onclick="quit()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
 </header>
 
@@ -309,7 +444,10 @@
     <div class="hero">
       <h1>Vem ringer du <em>idag?</em></h1>
       <p>Fyll i en gång. Allt sparas till nästa samtal.</p>
-      <input class="who" id="who" type="text" placeholder="Anna Berg, rektor på Solskolan" autocomplete="off">
+      <div class="ident">
+        <label><span class="sub">Du ringer</span><input class="who" id="who" type="text" placeholder="Anna Berg, rektor på Solskolan" autocomplete="off"></label>
+        <label><span class="sub">Du är</span><input class="who" id="me" type="text" placeholder="Ditt namn, företag" autocomplete="off"></label>
+      </div>
     </div>
 
     <div class="bento">
@@ -427,7 +565,7 @@ window.__errs = [];
 window.addEventListener("error", (e) => window.__errs.push(String(e.message) + " @" + e.lineno));
 window.addEventListener("unhandledrejection", (e) => window.__errs.push("promise: " + String(e.reason)));
 const $ = (id) => document.getElementById(id);
-const FIELDS = ["who", "product", "price", "args", "notes"];
+const FIELDS = ["who", "me", "product", "price", "args", "notes"];
 let goal = "Boka möte", paused = false, live = false, t0 = 0, clockTimer = null, streaming = false;
 
 let mode = "computer";
@@ -523,7 +661,11 @@ async function start() {
   await ready;  // spara aldrig ett halvladdat (tomt) formulär
   $("err").textContent = "";
   $("startBtn").disabled = true;
+  // Tona bara bort formuläret om anslutningen tar en stund (snabba fel ska inte blinka).
+  const lt = setTimeout(() => document.body.classList.add("launching"), 120);
   const r = await pywebview.api.start(collect());
+  clearTimeout(lt);
+  document.body.classList.remove("launching");
   $("startBtn").disabled = false;
   if (!r.ok) { showErr(r.error); return; }
   enterLive();
@@ -610,6 +752,73 @@ function setMain(text, all) {
   }
 }
 function flash(el) { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+
+// Stäng: spela avslutningen, sedan tonar Python ut själva fönstret och avslutar.
+let quitting = false;
+function quit() {
+  if (quitting) return;
+  quitting = true;
+  document.body.classList.add("exiting");
+  setTimeout(() => document.body.classList.add("exiting-2"), 1050);   // andra akten: rösten tystnar
+  setTimeout(() => pywebview.api.close(), 1300);                       // Python tonar ut fönstret
+}
+
+// Minimera med "genie"-effekt. Python tonar ut fönstret samtidigt och minimerar det sedan.
+let minimizing = false, minimizedAt = 0;
+function minimizeApp() {
+  if (minimizing || quitting) return;
+  minimizing = true;
+  minimizedAt = Date.now();
+  document.body.classList.remove("restoring");
+  document.body.classList.add("minimizing");
+  pywebview.api.minimize();
+}
+function restoredApp() {     // anropas av Python när fönstret visas igen
+  try { pywebview.api.ensure_visible(); } catch (e) {}
+  if (!minimizing) return;
+  minimizing = false;
+  const b = document.body;
+  b.classList.remove("minimizing");
+  b.classList.add("restoring");
+  setTimeout(() => b.classList.remove("restoring"), 650);
+}
+// Reserv om händelsen från Python uteblir: fönstret får fokus igen efter att ha minimerats.
+window.addEventListener("focus", () => { if (minimizing && Date.now() - minimizedAt > 700) restoredApp(); });
+
+// Intro: loggan vaknar, sedan zoomar vi in genom den och appen landar. Klick eller tangent hoppar över.
+// Python visar fönstret först när sidan har laddat och anropar då startIntro().
+let introStarted = false;
+function startIntro() {
+  if (introStarted) return;
+  introStarted = true;
+  runIntro();
+}
+setTimeout(() => { if (!window.pywebview) startIntro(); }, 600);   // vanlig webbläsare (designkontroll)
+setTimeout(startIntro, 5000);                                       // säkerhetsnät: täck aldrig appen för gott
+function runIntro() {
+  const b = document.body;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { b.classList.remove("intro-on"); return; }
+  b.classList.add("intro-play");
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    b.classList.add("intro-out");
+    const v = document.querySelector(".view.on");      // spela upp vyns entré igen nu när den syns
+    if (v) { v.classList.remove("on"); void v.offsetWidth; v.classList.add("on"); }
+    setTimeout(() => b.classList.remove("intro-on", "intro-play", "intro-out"), 950);
+  };
+  setTimeout(finish, 1550);
+  addEventListener("pointerdown", finish, { once: true });
+  addEventListener("keydown", finish, { once: true });
+}
+
+// Mjukt ljus som följer pekaren över korten
+document.querySelectorAll(".tile").forEach(t => t.addEventListener("pointermove", (e) => {
+  const r = t.getBoundingClientRect();
+  t.style.setProperty("--mx", (e.clientX - r.left) + "px");
+  t.style.setProperty("--my", (e.clientY - r.top) + "px");
+}));
 
 function dismissConsent(el) {
   el.classList.add("out");
