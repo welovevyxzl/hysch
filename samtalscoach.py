@@ -1,4 +1,4 @@
-"""Viska - lyssnar på samtalet och visar vad du kan svara, i realtid.
+"""Hysch - lyssnar på samtalet och visar vad du kan svara, i realtid.
 
 Ljud: mikrofon (= Du) + Windows systemljud via WASAPI loopback (= Motpart).
 Två lägen, valda i uppstartsguiden:
@@ -29,7 +29,7 @@ import engines as E
 IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
 
-APP_NAME = "Viska"
+APP_NAME = "Hysch"
 STT_MODELS = ["gpt-transcribe", "gpt-4o-transcribe", "whisper-1"]   # tal-till-text; nästa i listan används om kontot saknar den första
 # Kvalitetsnivå i molnet: "Snabb" börjar med den lilla modellen, resten med den stora.
 STT_BY_TIER = {"fast": ["gpt-4o-mini-transcribe", "gpt-transcribe", "gpt-4o-transcribe", "whisper-1"],
@@ -45,13 +45,46 @@ CHUNK_HARD = 20.0            # s: ... och senast här, så väntan efter att man
 
 SUMMARY_MODEL = "gpt-6.1-terra"   # analys efter samtalet
 
+LEGACY_NAME = "Viska"   # appens förra namn: gamla datamappen flyttas automatiskt
+
+
 def _app_dir() -> str:
-    """Windows: %APPDATA%\\Viska. Mac: ~/Library/Application Support/Viska."""
-    if IS_WIN:
-        return os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
-    if IS_MAC:
-        return os.path.join(os.path.expanduser("~/Library/Application Support"), APP_NAME)
-    return os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), APP_NAME)
+    """Windows: %APPDATA%\\Hysch. Mac: ~/Library/Application Support/Hysch."""
+    def base(name):
+        if IS_WIN:
+            return os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), name)
+        if IS_MAC:
+            return os.path.join(os.path.expanduser("~/Library/Application Support"), name)
+        return os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), name)
+    new, old = base(APP_NAME), base(LEGACY_NAME)
+    marker = os.path.join(new, ".flyttat_fran_viska")
+    if os.path.isdir(old) and not os.path.exists(marker):
+        try:
+            _merge_old_data(old, new)
+            open(marker, "w").close()
+        except OSError:
+            return old              # något gick inte att kopiera: använd den gamla så inget går förlorat
+    return new
+
+
+def _merge_old_data(old: str, new: str) -> None:
+    """Kopiera inställningar, samtal och modeller från den gamla mappen. Det som redan finns i den
+    nya behålls (utom config.json: den nyaste vinner). Den gamla mappen lämnas orörd som säkerhetskopia."""
+    import shutil
+    os.makedirs(new, exist_ok=True)
+    for name in os.listdir(old):
+        src, dst = os.path.join(old, name), os.path.join(new, name)
+        if name == "crash.log":
+            continue
+        if not os.path.exists(dst):
+            (shutil.copytree if os.path.isdir(src) else shutil.copy2)(src, dst)
+        elif os.path.isdir(src) and os.path.isdir(dst):      # t.ex. calls: lägg till samtal som saknas
+            for sub in os.listdir(src):
+                s2, d2 = os.path.join(src, sub), os.path.join(dst, sub)
+                if not os.path.exists(d2):
+                    (shutil.copytree if os.path.isdir(s2) else shutil.copy2)(s2, d2)
+        elif name == "config.json" and os.path.getmtime(src) > os.path.getmtime(dst):
+            shutil.copy2(src, dst)                           # nyare inställningar vinner
 
 
 CONFIG_DIR = _app_dir()
@@ -63,10 +96,10 @@ CALL_ID = re.compile(r"\d{8}-\d{6}")
 
 # ---------------------------------------------------------------- config
 def log(*a):
-    r"""Enkel loggfil i %APPDATA%\Viska\viska.log (för felsökning av ljud)."""
+    r"""Enkel loggfil i %APPDATA%\Hysch\hysch.log (för felsökning av ljud)."""
     try:
         os.makedirs(CONFIG_DIR, exist_ok=True)
-        with open(os.path.join(CONFIG_DIR, "viska.log"), "a", encoding="utf-8") as fh:
+        with open(os.path.join(CONFIG_DIR, "hysch.log"), "a", encoding="utf-8") as fh:
             fh.write(time.strftime("%H:%M:%S ") + " ".join(str(x) for x in a) + "\n")
     except Exception:
         pass
@@ -641,7 +674,7 @@ class Coach:
 
 
 def app_windows() -> list:
-    """Appens synliga toppfönster (titel Viska) i den här processen. Bara Windows."""
+    """Appens synliga toppfönster (titel Hysch) i den här processen. Bara Windows."""
     if not IS_WIN:
         return []
     import ctypes

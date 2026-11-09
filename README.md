@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/hero.png" alt="Viska: know what to say next" width="100%">
+  <img src="docs/hero.png" alt="Hysch: know what to say next" width="100%">
 </p>
 
 <p align="center">
-  <a href="https://github.com/welovevyxzl/viska/releases/latest/download/Viska.exe"><img src="docs/download.png" alt="Download for Windows" width="300"></a>
+  <a href="https://github.com/welovevyxzl/hysch/releases/latest/download/Hysch.exe"><img src="docs/download.png" alt="Download for Windows" width="300"></a>
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 <br>
 
-Viska is a Windows app for people who sell over the phone. It listens to your call, shows you what to say next while you are still talking, and writes up the whole call when you hang up: a summary, what you need to do, and how you did.
+Hysch is a Windows app for people who sell over the phone. It listens to your call, shows you what to say next while you are still talking, and writes up the whole call when you hang up: a summary, what you need to do, and how you did.
 
 It is built for calls in Swedish. It can run on OpenAI's cloud, or entirely on your own PC.
 
@@ -31,7 +31,7 @@ It is built for calls in Swedish. It can run on OpenAI's cloud, or entirely on y
 
 A small window sits on top of your call. The other person says "we have no budget for this", and a moment later you see a line you can say back, plus two alternatives.
 
-Before you start, you fill in who you are calling, who you are, what you sell, the price, your best arguments and the objections you expect. Viska only uses what you wrote. It will not invent prices or promises, and if someone asks who is calling, it answers with your name and company.
+Before you start, you fill in who you are calling, who you are, what you sell, the price, your best arguments and the objections you expect. Hysch only uses what you wrote. It will not invent prices or promises, and if someone asks who is calling, it answers with your name and company.
 
 Press **N** for a new suggestion, **P** to pause, **1** or **2** to swap in an alternative.
 
@@ -46,7 +46,7 @@ Press **N** for a new suggestion, **P** to pause, **1** or **2** to swap in an a
 
 ## After the call
 
-When you press Avsluta, Viska reads the whole call and gives you a debrief.
+When you press Avsluta, Hysch reads the whole call and gives you a debrief.
 
 <p align="center">
   <img src="docs/show-debrief.png" alt="The debrief screen and the list of past calls" width="100%">
@@ -65,7 +65,7 @@ Every call is saved, so you can open old ones from **Tidigare samtal** on the st
 
 ## First run
 
-The first time you open Viska it asks a few questions: your name, what you want out of it, how good it should be, and where it should think. If you already use Viska, it skips this. You can run it again from **Inställningar**.
+The first time you open Hysch it asks a few questions: your name, what you want out of it, how good it should be, and where it should think. If you already use Hysch, it skips this. You can run it again from **Inställningar**.
 
 <p align="center">
   <img src="docs/show-setup.png" alt="The setup: welcome, choosing local models, downloading them" width="100%">
@@ -85,10 +85,10 @@ The first time you open Viska it asks a few questions: your name, what you want 
 
 Local mode takes some honest trade-offs.
 
-- **Speed.** Measured on a 12-core CPU, Whisper Small writes out 9 seconds of speech in about 2 seconds. Medium is around three times slower and Large around six, so Viska recommends Small unless you have an NVIDIA graphics card that Whisper can actually use. The first-run test shows how long it takes on your PC.
+- **Speed.** Measured on a 12-core CPU, Whisper Small writes out 9 seconds of speech in about 2 seconds. Medium is around three times slower and Large around six, so Hysch recommends Small unless you have an NVIDIA graphics card that Whisper can actually use. The first-run test shows how long it takes on your PC.
 - **Graphics card.** Whisper only uses an NVIDIA card when the CUDA 12 libraries (`cublas64_12.dll`) are installed. Without them it quietly falls back to the processor.
 - **The text model.** It runs in Ollama. If other programs fill your graphics memory, the first suggestion can be slow. After the model is loaded, the first word usually comes in well under a second.
-- **Debrief quality.** Small local models follow the debrief format less reliably than the cloud. Viska corrects what it can, and you can pick a larger model in the setup.
+- **Debrief quality.** Small local models follow the debrief format less reliably than the cloud. Hysch corrects what it can, and you can pick a larger model in the setup.
 
 <br>
 
@@ -104,13 +104,13 @@ Each audio source is cut into turns by a simple voice detector that tracks the b
 
 ## Install
 
-1. Download [Viska.exe](https://github.com/welovevyxzl/viska/releases/latest/download/Viska.exe). There is no installer, and the file is about 100 MB because Whisper is built in.
+1. Download [Hysch.exe](https://github.com/welovevyxzl/hysch/releases/latest/download/Hysch.exe). There is no installer, and the file is about 100 MB because Whisper is built in.
 2. Run it and answer the first-run questions.
 3. Fill in the form, choose a mode and press **Starta samtal**.
 
 Windows SmartScreen will probably warn about an unknown publisher, because the exe is not code-signed. Choose More info, then Run anyway.
 
-Viska runs on **Windows 10 and 11**. The engines (Whisper and Ollama) also exist for Mac, but Viska's audio capture and window code are Windows-only for now, so there is no Mac version yet.
+Hysch runs on **Windows 10 and 11**. The engines (Whisper and Ollama) also exist for Mac, but Hysch's audio capture and window code are Windows-only for now, so there is no Mac version yet.
 
 ### Two modes
 
@@ -126,10 +126,10 @@ Computer mode gives the best transcription, because their voice arrives digitall
 
 ## Privacy
 
-- **On your PC:** your settings and API key, and every call's transcript and debrief, in `%APPDATA%\Viska`. Downloaded Whisper models are in `%APPDATA%\Viska\models`. Viska does not keep audio.
+- **On your PC:** your settings and API key, and every call's transcript and debrief, in `%APPDATA%\Hysch`. Downloaded Whisper models are in `%APPDATA%\Hysch\models`. Hysch does not keep audio.
 - **Cloud mode:** the audio of each turn is sent to OpenAI for transcription, and the text of the conversation for the coach and the debrief, using your own key.
 - **Local mode:** nothing is sent anywhere. The only internet use is the one-time model download.
-- **Tell the person you are calling.** Say at the start that the call is transcribed with AI and saved. GDPR requires it, and Viska reminds you in the live view.
+- **Tell the person you are calling.** Say at the start that the call is transcribed with AI and saved. GDPR requires it, and Hysch reminds you in the live view.
 
 <br>
 
@@ -152,10 +152,10 @@ Put your key in `.env` (git-ignored) if you want the cloud mode, then run:
 To build the exe:
 
 ```bash
-.venv\Scripts\python -m PyInstaller --noconfirm --onefile --windowed --name Viska --add-data "ui;ui" samtalscoach.py
+.venv\Scripts\python -m PyInstaller --noconfirm --onefile --windowed --name Hysch --add-data "ui;ui" samtalscoach.py
 ```
 
-The result is `dist\Viska.exe`.
+The result is `dist\Hysch.exe`.
 
 <details>
 <summary>Files and troubleshooting</summary>
@@ -164,7 +164,7 @@ The result is `dist\Viska.exe`.
 
 - `samtalscoach.py` holds audio capture, the coach and the debrief. `engines.py` holds the local parts: model download, Whisper and Ollama. `ui/index.html` is the whole interface, and `ui/onboard.js` and `ui/onboard.css` are the first-run setup.
 - The key is read from the `OPENAI_API_KEY` environment variable, then a `.env` file next to the exe, then the saved settings.
-- Settings are in `%APPDATA%\Viska\config.json`, saved calls in `%APPDATA%\Viska\calls`, and a debug log in `%APPDATA%\Viska\viska.log`. The log shows how long each transcription took.
+- Settings are in `%APPDATA%\Hysch\config.json`, saved calls in `%APPDATA%\Hysch\calls`, and a debug log in `%APPDATA%\Hysch\hysch.log`. The log shows how long each transcription took.
 - If the mic will not open, it is probably muted (Fn key or Windows sound settings). Unmute, press Avsluta, then Starta.
 - If you hear nothing from the other person in Computer mode, check that the call audio plays through the output device chosen in setup.
 - If a model download stops, run the setup again from Inställningar. Downloads continue where they left off.

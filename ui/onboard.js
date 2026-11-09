@@ -108,7 +108,7 @@ const OB_STEPS = {
     const s = obStep("ob-center");
     const m = el("div", "ob-mark");
     m.innerHTML = '<div class="bigmark"><b></b><b></b><b></b><b></b><b></b></div>';
-    s.append(m, obHeading("Välkommen till *Viska.*", "big"),
+    s.append(m, obHeading("Välkommen till *Hysch.*", "big"),
       el("p", "ob-sub", "Din säljcoach i örat. Fyra snabba frågor, så att allt passar just dig."));
     return { el: s, next: () => ({ label: "Kom igång", hint: "Det tar ungefär en minut." }) };
   },
@@ -146,7 +146,7 @@ const OB_STEPS = {
 
   goals() {
     const s = obStep();
-    s.append(el("div", "ob-kicker", "Fråga 2 av 4"), obHeading("Vad vill du få ut av *Viska?*"),
+    s.append(el("div", "ob-kicker", "Fråga 2 av 4"), obHeading("Vad vill du få ut av *Hysch?*"),
       el("p", "ob-sub", "Välj ett eller flera. Coachen riktar sina förslag efter det."));
     const g = el("div", "ob-grid c2");
     GOALS.forEach((x, i) => {
@@ -192,7 +192,7 @@ const OB_STEPS = {
     const s = obStep();
     const sys = (OB.info && OB.info.system) || { ram_gb: 0, cores: 0, os: "windows" };
     const ram = sys.ram_gb;
-    s.append(el("div", "ob-kicker", "Fråga 4 av 4"), obHeading("Var ska Viska *tänka?*"),
+    s.append(el("div", "ob-kicker", "Fråga 4 av 4"), obHeading("Var ska Hysch *tänka?*"),
       el("p", "ob-sub", "Du kan använda OpenAI:s moln, eller köra allt privat på din egen dator."));
     const need = (() => {
       const st = (OB.info ? OB.info.stt : []).find(p => p.tier === OB.d.quality), ll = (OB.info ? OB.info.llm : []).find(p => p.tier === OB.d.quality);
@@ -309,7 +309,7 @@ const OB_STEPS = {
       const o = OB.ollama;
       if (!o.installed) {
         const n = el("div", "ob-note");
-        const g = el("div", "grow"); g.innerHTML = "<b>Ollama behövs.</b> Det är ett gratis program som kör textmodellen på din dator. Installera det och kom tillbaka hit, så hittar Viska det av sig själv.";
+        const g = el("div", "grow"); g.innerHTML = "<b>Ollama behövs.</b> Det är ett gratis program som kör textmodellen på din dator. Installera det och kom tillbaka hit, så hittar Hysch det av sig själv.";
         const get = el("button", "ob-btn pri", "Hämta Ollama"); get.type = "button"; get.onclick = () => pywebview.api.setup_open("ollama");
         const re = el("button", "ob-btn", "Jag har installerat det"); re.type = "button"; re.onclick = () => obRefreshOllama(true);
         n.append(g, get, re); boxB.append(n); return;
@@ -413,7 +413,7 @@ const OB_STEPS = {
   test() {
     const s = obStep("ob-center");
     s.append(el("div", "ob-kicker", "Sista kollen"), obHeading("Säg *något.*"),
-      el("p", "ob-sub", "Läs en mening högt, så testar vi att Viska hör dig och skriver rätt."));
+      el("p", "ob-sub", "Läs en mening högt, så testar vi att Hysch hör dig och skriver rätt."));
     const t = el("div", "ob-test ob-after");
     const orb = el("button", "ob-orb"); orb.type = "button"; orb.id = "obOrb";
     const lv = el("div", "lv"); for (let k = 0; k < 7; k++) lv.append(el("b")); lv.style.display = "none";
@@ -436,7 +436,7 @@ const OB_STEPS = {
     const s = obStep("ob-center");
     const nm = OB.d.name.trim().split(/\s+/)[0] || "";
     s.append(obHeading(`Allt klart${nm ? ", *" + nm + ".*" : ".*"}`, "big"),
-      el("p", "ob-sub", "Viska är redo för ditt första samtal. Du hittar inställningarna uppe till höger på startsidan."));
+      el("p", "ob-sub", "Hysch är redo för ditt första samtal. Du hittar inställningarna uppe till höger på startsidan."));
     const sum = el("div", "ob-summary");
     const chips = [];
     chips.push(OB.d.engine === "local" ? "Lokalt på din dator" : "OpenAI-molnet");
@@ -444,7 +444,7 @@ const OB_STEPS = {
     if (OB.d.engine === "local") { const st = (OB.info.stt || []).find(p => p.id === OB.d.stt); if (st) chips.push(st.name); chips.push(OB.d.llm); }
     chips.forEach(c => { const d = el("div", "ob-chip"); d.textContent = c; sum.append(d); });
     s.append(sum);
-    return { el: s, next: () => ({ label: OB.rerun ? "Spara" : "Starta Viska" }) };
+    return { el: s, next: () => ({ label: OB.rerun ? "Spara" : "Starta Hysch" }) };
   },
 };
 

@@ -22,7 +22,7 @@ IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
 OLLAMA_URL = "http://127.0.0.1:11434"
 NUM_CTX = 8192          # kontextfönster för chatt och uppvärmning (måste vara lika, se Ollama.warm)
-UA = {"User-Agent": "Viska"}
+UA = {"User-Agent": "Hysch"}
 
 
 def log(*a):
