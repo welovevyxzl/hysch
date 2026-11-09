@@ -2,7 +2,7 @@
 
 Windows-app som lyssnar på ett säljsamtal och visar vad du kan säga härnäst, i realtid.
 
-- **Tal till text:** OpenAI `gpt-live-transcribe` (Realtime API)
+- **Tal till text:** OpenAI `gpt-transcribe` (Realtime API, cirka $0,0045/min)
 - **Svarsförslag:** OpenAI `gpt-6-luna`
 - **Gränssnitt:** HTML/CSS i `ui/index.html`, visat med pywebview (WebView2)
 

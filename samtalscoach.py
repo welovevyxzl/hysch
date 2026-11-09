@@ -22,7 +22,7 @@ from openai import OpenAI
 from websockets.sync.client import connect
 
 APP_NAME = "Viska"
-TRANSCRIBE_MODEL = "gpt-live-transcribe"
+TRANSCRIBE_MODEL = "gpt-transcribe"   # billigast och noggrannast ($0,0045/min); skriver ut efter varje replik
 COACH_MODEL = "gpt-6-luna"
 RT_URL = "wss://api.openai.com/v1/realtime?intent=transcription"
 RATE = 24000                 # Realtime vill ha 24 kHz PCM16 mono
@@ -30,7 +30,7 @@ SILENCE_HANG = 0.55          # sekunder tystnad = turen är slut
 SETUP_W, SETUP_H = 900, 760
 DELAY = "high"             # noggrannare tal-till-text (mer ljudkontext), lite långsammare
 EARLY = False             # vänta på färdig text i stället för halvfärdig
-PREROLL = 0.3                # sekunder ljud före talstart som skickas med
+PREROLL = 0.6               # sekunder ljud före talstart som skickas med
 
 CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
@@ -170,7 +170,9 @@ class Source:
     def start(self):
         self.ws = connect(RT_URL, additional_headers={"Authorization": f"Bearer {self.key}"},
                           max_size=None, open_timeout=10, close_timeout=1)
-        tr = {"model": TRANSCRIBE_MODEL, "languages": ["sv"], "delay": DELAY}
+        tr = {"model": TRANSCRIBE_MODEL, "languages": ["sv"]}
+        if TRANSCRIBE_MODEL == "gpt-live-transcribe":
+            tr["delay"] = DELAY    # gpt-transcribe stöder inte "delay"
         tr.update(self.hints)   # prompt + keywords från formuläret
         self.ws.send(json.dumps({
             "type": "session.update",
