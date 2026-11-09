@@ -1,6 +1,8 @@
 <p align="center">
-  <img src="docs/hero.png" alt="Hysch: know what to say next" width="100%">
+  <img src="assets/logo-lockup.png" alt="Hysch" width="420">
 </p>
+
+<p align="center"><b>Know what to say next.</b></p>
 
 <p align="center">
   <a href="https://github.com/welovevyxzl/hysch/releases/latest/download/Hysch.exe"><img src="docs/download.png" alt="Download for Windows" width="300"></a>
@@ -152,7 +154,7 @@ Put your key in `.env` (git-ignored) if you want the cloud mode, then run:
 To build the exe:
 
 ```bash
-.venv\Scripts\python -m PyInstaller --noconfirm --onefile --windowed --name Hysch --add-data "ui;ui" samtalscoach.py
+.venv\Scripts\python -m PyInstaller --noconfirm --onefile --windowed --name Hysch --icon assets\icon.ico --add-data "ui;ui" samtalscoach.py
 ```
 
 The result is `dist\Hysch.exe`.

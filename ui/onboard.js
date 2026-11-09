@@ -107,7 +107,7 @@ const OB_STEPS = {
   welcome() {
     const s = obStep("ob-center");
     const m = el("div", "ob-mark");
-    m.innerHTML = '<div class="bigmark"><b></b><b></b><b></b><b></b><b></b></div>';
+    m.innerHTML = '<div class="bigmark"><svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#16181D"/><g fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><path d="M30 22V76"/><path d="M30 54C30 44 36 38 45 38C55 38 60 44 60 54V76"/></g><circle cx="77" cy="75" r="6.5" fill="#FF5A36"/></svg></div>';
     s.append(m, obHeading("Välkommen till *Hysch.*", "big"),
       el("p", "ob-sub", "Din säljcoach i örat. Fyra snabba frågor, så att allt passar just dig."));
     return { el: s, next: () => ({ label: "Kom igång", hint: "Det tar ungefär en minut." }) };
