@@ -77,7 +77,7 @@ The first time you open Viska it asks a few questions: your name, what you want 
 
 | | OpenAI cloud | On your PC |
 |---|---|---|
-| Listening | `gpt-4o-transcribe` | Whisper, trained on Swedish (KBLab) |
+| Listening | `gpt-transcribe` | Whisper, trained on Swedish (KBLab) |
 | Thinking and the debrief | `gpt-6-luna` and `gpt-6.1-terra` | Any model in [Ollama](https://ollama.com), such as Gemma 3 |
 | You need | Your own OpenAI API key | A decent PC, Ollama, and a one-time download |
 | Cost | You pay OpenAI per use | Free once the models are downloaded |

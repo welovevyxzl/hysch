@@ -2,7 +2,7 @@
 
 Ljud: mikrofon (= Du) + Windows systemljud via WASAPI loopback (= Motpart).
 Två lägen, valda i uppstartsguiden:
-  moln:   tal-till-text gpt-4o-transcribe (whisper-1 som reserv), förslag gpt-6-luna, analys gpt-6.1-terra.
+  moln:   tal-till-text gpt-transcribe (gpt-4o-transcribe och whisper-1 som reserv), förslag gpt-6-luna, analys gpt-6.1-terra.
   lokalt: tal-till-text Whisper (faster-whisper, svenska KB-modeller) och text/analys via Ollama.
 Varje replik transkriberas i ett svep när personen tystnat (inte live).
 API-nyckel (moln): miljövariabeln OPENAI_API_KEY, annars .env, annars den sparade inställningen.
@@ -30,9 +30,9 @@ IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
 
 APP_NAME = "Viska"
-STT_MODELS = ["gpt-4o-transcribe", "whisper-1"]   # tal-till-text; nästa i listan används om kontot saknar den första
+STT_MODELS = ["gpt-transcribe", "gpt-4o-transcribe", "whisper-1"]   # tal-till-text; nästa i listan används om kontot saknar den första
 # Kvalitetsnivå i molnet: "Snabb" börjar med den lilla modellen, resten med den stora.
-STT_BY_TIER = {"fast": ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"],
+STT_BY_TIER = {"fast": ["gpt-4o-mini-transcribe", "gpt-transcribe", "gpt-4o-transcribe", "whisper-1"],
                "balanced": STT_MODELS, "best": STT_MODELS}
 COACH_MODEL = "gpt-6-luna"
 RATE = 24000                 # ljudet skickas som 24 kHz mono
@@ -238,7 +238,7 @@ def normalize(x: np.ndarray) -> np.ndarray:
 
 
 class CloudTranscriber:
-    """OpenAI: hela repliker skickas som WAV till gpt-4o-transcribe (whisper-1 som reserv)."""
+    """OpenAI: hela repliker skickas som WAV till gpt-transcribe (gpt-4o-transcribe och whisper-1 som reserv)."""
 
     name = "cloud"
 
@@ -1022,7 +1022,7 @@ class Api:
         if not key:
             return {"ok": False, "error": "Skriv in en nyckel."}
         client = OpenAI(api_key=key, timeout=15, max_retries=0)
-        want = {"transcribe": ["gpt-4o-transcribe", "whisper-1"], "coach": [COACH_MODEL], "summary": [SUMMARY_MODEL]}
+        want = {"transcribe": ["gpt-transcribe", "gpt-4o-transcribe", "whisper-1"], "coach": [COACH_MODEL], "summary": [SUMMARY_MODEL]}
         avail = {}
         try:
             for part, ids in want.items():
