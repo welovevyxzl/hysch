@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="onboard.css">
 <style>
   :root {
     --bg: #FAF8F5;
@@ -39,7 +40,7 @@
 
   /* Mjuk färgbakgrund (statisk) */
   .aura { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-  .aura span { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; }
+  .aura span { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .4; }
   .aura .a { width: 520px; height: 420px; left: -160px; top: -180px; background: #C9BCFF; }
   .aura .b { width: 460px; height: 380px; right: -140px; top: -140px; background: #FFD3C4; }
   .aura .c { width: 520px; height: 360px; left: 30%; bottom: -240px; background: #BFF0DC; opacity: .45; }
@@ -67,13 +68,15 @@
   .hero h1 { font-size: 40px; line-height: 1.05; font-weight: 600; letter-spacing: -.035em; }
   .hero h1 em { font-style: normal; color: var(--violet); }
   .hero p { color: var(--ink-2); font-size: 15px; margin-top: 10px; }
+  .ident { margin-top: 22px; display: grid; grid-template-columns: 1.55fr 1fr; gap: 12px; }
+  .ident .sub { padding-left: 4px; }
   .who {
-    margin-top: 22px; width: 100%; border: 0; outline: none; background: var(--glass);
+    width: 100%; border: 0; outline: none; background: var(--glass);
     backdrop-filter: blur(20px); border-radius: 18px; padding: 18px 20px; font-size: 20px; font-weight: 500;
     box-shadow: 0 0 0 1px var(--line), 0 10px 30px -18px rgba(18,15,36,.25); transition: box-shadow .2s var(--ease);
   }
   .who::placeholder { color: var(--faint); font-weight: 400; }
-  .who:focus { box-shadow: 0 0 0 2px var(--violet), 0 12px 34px -16px rgba(91,61,245,.4); }
+  .who:focus { box-shadow: 0 0 0 1px rgba(91,61,245,.5), 0 0 0 5px rgba(91,61,245,.11), 0 14px 36px -18px rgba(91,61,245,.4); }
 
   .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .tile {
@@ -84,17 +87,14 @@
   .span2 { grid-column: span 2; } .span3 { grid-column: span 3; }
   .tile-head { display: flex; align-items: center; gap: 10px; }
   .ico { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; flex: none; }
-  .ico.v { background: #EEEAFF; color: var(--violet); }
-  .ico.c { background: #FFECE7; color: #E24E30; }
-  .ico.m { background: #E3F8EF; color: #0A9467; }
-  .ico.a { background: #FFF3DC; color: #B87400; }
+  .ico.v, .ico.c, .ico.m, .ico.a { background: rgba(18,15,36,.05); color: var(--ink-2); }
   .tile h2 { font-size: 14px; font-weight: 600; }
   .tile h2 small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 1px; }
 
   .f { width: 100%; border: 0; outline: none; background: var(--field); border-radius: 12px; padding: 11px 13px;
     font-size: 14px; line-height: 1.5; transition: background .15s, box-shadow .15s; }
   .f:hover { background: var(--field-hover); }
-  .f:focus { background: #fff; box-shadow: 0 0 0 2px var(--violet); }
+  .f:focus { background: #fff; box-shadow: 0 0 0 1px rgba(91,61,245,.55), 0 0 0 4px rgba(91,61,245,.13); }
   .f::placeholder { color: var(--faint); }
   textarea.f { resize: none; flex: 1; min-height: 64px; }
   select.f { appearance: none; cursor: pointer; padding-right: 34px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -105,22 +105,24 @@
   .ibtn.sq { width: 36px; padding: 0; justify-content: center; }
   .sub { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 6px; display: block; }
 
-  .goals { display: flex; flex-direction: column; gap: 6px; }
-  .goal { display: flex; align-items: center; gap: 10px; border: 0; background: var(--field); border-radius: 12px;
-    padding: 10px 12px; cursor: pointer; font-weight: 500; text-align: left; transition: all .18s var(--ease); }
-  .goal:hover { background: var(--field-hover); }
-  .goal i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--faint); flex: none; transition: all .18s var(--ease); }
-  .goal.on { background: var(--ink); color: #fff; }
-  .goal.on i { box-shadow: inset 0 0 0 5px #fff; }
-
-  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
-  .mode { border: 0; text-align: left; cursor: pointer; background: var(--field); border-radius: 14px; padding: 12px 14px;
-    display: flex; flex-direction: column; gap: 3px; transition: all .18s var(--ease); }
+  /* Segmenterade val med en vit markering som glider mellan alternativen */
+  .goals, .modes { position: relative; background: rgba(18,15,36,.045); padding: 4px; }
+  .goals { display: flex; flex-direction: column; gap: 2px; border-radius: 14px; }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 6px; border-radius: 16px; }
+  .thumb { position: absolute; left: 0; top: 0; width: 0; height: 0; border-radius: 10px; background: #fff; pointer-events: none;
+    box-shadow: 0 0 0 .5px rgba(18,15,36,.08), 0 1px 2px rgba(18,15,36,.06), 0 6px 16px -6px rgba(18,15,36,.2); }
+  .modes .thumb { border-radius: 12px; }
+  .thumb.ready { transition: transform .55s var(--glide), width .55s var(--glide), height .55s var(--glide); }
+  .goal, .mode { position: relative; z-index: 1; border: 0; background: transparent; cursor: pointer; text-align: left;
+    color: var(--ink-2); transition: color .25s var(--smooth), transform .25s var(--spring); }
+  .goal { display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 9px 12px; font-weight: 500; }
+  .goal i { width: 6px; height: 6px; border-radius: 50%; background: var(--violet); flex: none;
+    transform: scale(0); opacity: 0; transition: transform .4s var(--spring), opacity .2s; }
+  .goal:hover, .mode:hover, .goal.on, .mode.on { color: var(--ink); }
+  .goal.on i { transform: scale(1); opacity: 1; }
+  .mode { border-radius: 12px; padding: 11px 14px; display: flex; flex-direction: column; gap: 3px; }
   .mode b { font-size: 14px; font-weight: 600; }
   .mode small { font-size: 12px; color: var(--muted); line-height: 1.4; }
-  .mode:hover { background: var(--field-hover); }
-  .mode.on { background: var(--ink); color: #fff; }
-  .mode.on small { color: rgba(255,255,255,.7); }
   .audio { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .audio.one { grid-template-columns: 1fr; }
   .audio.k3 { grid-template-columns: 1fr 1fr 1fr; }
@@ -199,10 +201,360 @@
   .ibtn.main { background: var(--ink); color: #fff; box-shadow: 0 8px 18px -10px rgba(18,15,36,.7); }
   .ibtn.main:hover { background: #2A2545; }
   .ibtn.end:hover { background: #FDECEC; color: #D93A1F; }
+
+  /* ================= Motion ================= */
+  :root { --spring: cubic-bezier(.34,1.5,.64,1); --smooth: cubic-bezier(.22,1,.36,1); --glide: cubic-bezier(.3,1.22,.4,1); }
+  .content { scroll-behavior: smooth; }
+
+  /* Bakgrunden andas långsamt */
+  .aura span { will-change: transform; }
+  .aura .a { animation: drift-a 28s ease-in-out infinite alternate; }
+  .aura .b { animation: drift-b 34s ease-in-out infinite alternate; }
+  .aura .c { animation: drift-c 40s ease-in-out infinite alternate; }
+  @keyframes drift-a { to { transform: translate3d(90px, 60px, 0) scale(1.15); } }
+  @keyframes drift-b { to { transform: translate3d(-80px, 70px, 0) scale(1.1); } }
+  @keyframes drift-c { to { transform: translate3d(60px, -50px, 0) scale(1.18); } }
+
+  /* Byte mellan formulär och live */
+  .view.on { animation: view-in .5s var(--smooth) backwards; }
+  @keyframes view-in { from { opacity: 0; transform: scale(.985); } }
+  @keyframes rise-in { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+
+  #setup.on .hero h1 { animation: rise-in .8s var(--smooth) .04s backwards; }
+  #setup.on .hero p { animation: rise-in .8s var(--smooth) .10s backwards; }
+  #setup.on .histbtn { animation: fade-in .7s var(--smooth) .3s backwards; }
+  #setup.on .ident { animation: rise-in .8s var(--smooth) .16s backwards; }
+  #setup.on .tile { animation: rise-in .8s var(--smooth) backwards; }
+  #setup.on .tile:nth-child(1) { animation-delay: .22s; }
+  #setup.on .tile:nth-child(2) { animation-delay: .28s; }
+  #setup.on .tile:nth-child(3) { animation-delay: .34s; }
+  #setup.on .tile:nth-child(4) { animation-delay: .40s; }
+  #setup.on .tile:nth-child(5) { animation-delay: .46s; }
+  #setup.on .footer { animation: rise-in .8s var(--smooth) .52s backwards; }
+
+  #live.on > * { animation: rise-in .65s var(--smooth) backwards; }
+  #live.on > :nth-child(2) { animation-delay: .06s; }
+  #live.on > :nth-child(3) { animation-delay: .12s; }
+  #live.on > :nth-child(4) { animation-delay: .16s; }
+  #live.on > :nth-child(5) { animation-delay: .20s; }
+
+  .status:not([hidden]), .voices:not([hidden]) { animation: fade-in .5s var(--smooth) .1s backwards; }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(3px); } }
+
+  /* Fokus och tryck */
+  .tile { transition: box-shadow .5s var(--smooth); }
+  .tile:focus-within { box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px rgba(18,15,36,.09), 0 22px 48px -26px rgba(18,15,36,.38); }
+  .who { transition: box-shadow .3s var(--smooth), transform .4s var(--smooth); }
+  .who:focus { transform: translateY(-1px); }
+  .goal:active, .mode:active { transform: scale(.97); }
+  .cta:active { transform: scale(.97); box-shadow: 0 8px 18px -12px rgba(18,15,36,.6); }
+  .cta[disabled] .go { animation: breathe 1s ease-in-out infinite; }
+  @keyframes breathe { 50% { transform: scale(.88); opacity: .7; } }
+  .ibtn, #alts button, .winbtns button, .consent button { transition: background .2s var(--smooth), color .2s var(--smooth), box-shadow .2s var(--smooth), transform .2s var(--spring); }
+  .ibtn:active { transform: scale(.94); }
+  #alts button:hover { transform: translateX(2px); }
+  #alts button:active { transform: scale(.985); }
+  .winbtns button:active { transform: scale(.9); }
+  .ptt { transition: background .2s var(--smooth), transform .25s var(--spring), box-shadow .25s var(--smooth); }
+  .err.shake { animation: shake .45s var(--smooth); }
+  @keyframes shake { 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+
+  /* Medgivande-rutan glider ut */
+  .consent { max-height: 60px; overflow: hidden; }
+  #live.on > .consent.out { animation: consent-out .35s var(--smooth) forwards; }
+  @keyframes consent-out { to { opacity: 0; transform: translateY(-6px) scale(.98); max-height: 0; padding-top: 0; padding-bottom: 0; margin-bottom: -10px; } }
+
+  /* Förslaget: orden tonar fram ett i taget */
+  #main .w { animation: word-in .6s var(--smooth) backwards; }
+  @keyframes word-in { from { opacity: 0; filter: blur(6px); } }
+  #alts button { animation: rise-in .55s var(--smooth) backwards; }
+  #alts button:nth-child(2) { animation-delay: .07s; }
+  .lat.flash { animation: fade-in .45s var(--smooth); }
+
+  /* Tänker: lugn violett andning runt kortet och skimrande etikett */
+  .stage { transition: box-shadow .6s var(--smooth); }
+  .stage.thinking { animation: breathe-ring 2.4s ease-in-out infinite; }
+  @keyframes breathe-ring {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px rgba(91,61,245,.2), 0 0 0 4px rgba(91,61,245,.04), 0 16px 40px -24px rgba(91,61,245,.35); }
+    50% { box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px rgba(91,61,245,.36), 0 0 0 6px rgba(91,61,245,.08), 0 18px 44px -22px rgba(91,61,245,.5); }
+  }
+  .stage.thinking .say-lbl span { color: transparent; -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg, var(--violet) 0%, var(--violet) 38%, #D6CCFF 50%, var(--violet) 62%, var(--violet) 100%);
+    background-size: 250% 100%; animation: shimmer 1.8s linear infinite; }
+  @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+
+  /* ================= Efter samtalet: analys och historik ================= */
+  .scroll { flex: 1; overflow-y: auto; padding: 10px 36px 30px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 22px), transparent 100%); }
+  .scroll::-webkit-scrollbar { width: 12px; }
+  .scroll::-webkit-scrollbar-thumb { background: rgba(18,15,36,.12); border-radius: 12px; border: 4px solid transparent; background-clip: padding-box; }
+  .hero { position: relative; }
+  .pillbtn { display: inline-flex; align-items: center; gap: 7px; border: 0; cursor: pointer; padding: 8px 13px; border-radius: 999px;
+    background: rgba(255,255,255,.75); box-shadow: 0 0 0 1px var(--line); font-size: 13px; font-weight: 600; color: var(--ink-2);
+    transition: background .2s, color .2s, transform .25s var(--spring); }
+  .pillbtn:hover { background: #fff; color: var(--ink); }
+  .pillbtn:active { transform: scale(.95); }
+  .pillbtn.dark { background: var(--ink); color: #fff; box-shadow: 0 8px 18px -10px rgba(18,15,36,.7); }
+  .pillbtn.dark:hover { background: #2A2545; }
+  .histbtn { position: absolute; top: 2px; right: 0; }
+
+  .sum-top { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+  .sum-top .sp { flex: 1; }
+  .sum-meta { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .sum-meta::first-letter { text-transform: uppercase; }
+  .sum-title { font-size: 34px; line-height: 1.08; font-weight: 600; letter-spacing: -.035em; margin: 6px 0 12px; text-wrap: balance; }
+  .pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; min-height: 26px; }
+  .pill { font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(18,15,36,.05); color: var(--ink-2); white-space: nowrap; }
+  .pill.good { background: #E3F8EF; color: #0A7A56; } .pill.mid { background: #FFF3DC; color: #8A5A00; }
+  .pill.bad { background: #FFECE7; color: #C23D22; } .pill.violet { background: #EEEAFF; color: var(--violet); }
+
+  .sgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .card { background: var(--glass); backdrop-filter: blur(20px) saturate(140%); border-radius: 22px; padding: 18px 20px; min-width: 0;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px var(--line), 0 12px 32px -22px rgba(18,15,36,.3); }
+  .card.c2 { grid-column: span 2; } .card.c3 { grid-column: span 3; }
+  #summary.on .card { animation: rise-in .75s var(--smooth) backwards; animation-delay: calc(var(--i, 0) * 70ms + 60ms); }
+  .card h3 { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 12px; display: flex; align-items: center; gap: 8px; min-height: 22px; }
+  .card h3 .act { margin-left: auto; text-transform: none; letter-spacing: 0; padding: 4px 10px; font-size: 12px; }
+  .card p { font-size: 15px; line-height: 1.55; color: var(--ink); }
+  .card p.sub2 { font-size: 13.5px; color: var(--ink-2); margin-top: 8px; }
+  .card ul { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .card li { font-size: 14px; line-height: 1.5; color: var(--ink-2); padding-left: 16px; position: relative; }
+  .card li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 5px; height: 5px; border-radius: 50%; background: var(--faint); }
+  .card.good-l li::before { background: var(--mint); } .card.imp-l li::before { background: var(--amber); }
+  .card .none { font-size: 13.5px; color: var(--faint); }
+
+  .scorecard { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; }
+  .ring { position: relative; width: 136px; height: 136px; }
+  .ring svg { transform: rotate(-90deg); display: block; }
+  .ring .track { stroke: rgba(18,15,36,.07); }
+  .ring .arc { stroke-linecap: round; transition: stroke-dashoffset 1.5s var(--smooth) .35s; }
+  .ring .num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 40px; font-weight: 600; letter-spacing: -.045em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .ring .num small { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-top: 4px; }
+  .scorecard .why { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+
+  .ratio { margin-top: 16px; }
+  .ratio .bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: rgba(18,15,36,.06); gap: 2px; }
+  .ratio .you { background: var(--mint); width: 0; border-radius: 999px; transition: width 1.3s var(--smooth) .45s; }
+  .ratio .them { background: var(--coral); width: 0; border-radius: 999px; transition: width 1.3s var(--smooth) .45s; }
+  .ratio .legend { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+  .ratio .legend b { color: var(--ink); font-weight: 600; }
+
+  .card.next { background: linear-gradient(140deg, var(--violet-2), var(--violet)); box-shadow: 0 18px 40px -20px rgba(91,61,245,.7); }
+  .card.next h3 { color: rgba(255,255,255,.72); }
+  .card.next p { color: #fff; font-size: 18px; font-weight: 500; letter-spacing: -.01em; line-height: 1.4; }
+
+  .stats { display: flex; flex-direction: column; gap: 14px; }
+  .stat b { display: block; font-size: 26px; font-weight: 600; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12.5px; color: var(--muted); }
+
+  .todo { display: flex; gap: 12px; align-items: flex-start; padding: 11px 12px; border-radius: 14px; background: var(--field);
+    border: 0; text-align: left; width: 100%; cursor: pointer; transition: background .2s, transform .25s var(--spring); }
+  .todo:hover { background: var(--field-hover); } .todo:active { transform: scale(.99); }
+  .todo + .todo { margin-top: 6px; }
+  .todo .box { width: 20px; height: 20px; border-radius: 7px; box-shadow: inset 0 0 0 1.5px var(--faint); flex: none; display: grid;
+    place-items: center; margin-top: 1px; transition: background .3s var(--smooth), box-shadow .3s, transform .35s var(--spring); }
+  .todo.done .box { background: var(--violet); box-shadow: none; transform: scale(1.06); }
+  .todo .box svg { opacity: 0; transform: scale(.3); transition: opacity .2s, transform .35s var(--spring); }
+  .todo.done .box svg { opacity: 1; transform: none; }
+  .todo .t { font-size: 14px; line-height: 1.45; color: var(--ink); transition: color .3s; }
+  .todo.done .t { color: var(--faint); text-decoration: line-through; }
+  .todo .towner { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .obj + .obj { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
+  .obj .q { font-weight: 600; font-size: 14.5px; }
+  .obj .h { font-size: 13.5px; color: var(--muted); margin-top: 4px; line-height: 1.45; }
+  .obj .b { margin-top: 9px; font-size: 14px; line-height: 1.5; color: var(--ink); background: #F3F0FF; border-radius: 12px; padding: 9px 12px; }
+  .obj .b em { font-style: normal; font-weight: 600; color: var(--violet); }
+
+  .mail .subj { font-weight: 600; font-size: 14.5px; margin-bottom: 10px; user-select: text; }
+  .mail .body { white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: var(--ink-2); background: var(--field);
+    border-radius: 14px; padding: 13px 15px; user-select: text; }
+
+  .tr summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .tr summary::-webkit-details-marker { display: none; }
+  .tr summary svg { transition: transform .35s var(--spring); }
+  .tr[open] summary svg { transform: rotate(90deg); }
+  .tr .lines { margin-top: 12px; }
+  .tr[open] .lines { animation: fade-in .45s var(--smooth); }
+  .tline { display: flex; gap: 12px; padding: 7px 0; }
+  .tline .ts { font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; width: 38px; flex: none; padding-top: 3px; }
+  .tline .w { font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; flex: none; height: fit-content; margin-top: 1px; }
+  .tline .w.du { background: #E3F8EF; color: #0A7A56; } .tline .w.mp { background: #FFECE7; color: #C23D22; }
+  .tline .tx { font-size: 14px; line-height: 1.55; user-select: text; }
+
+  .analyzing { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 0 22px; color: var(--muted); font-size: 14px; font-weight: 500; }
+  .analyzing span { color: transparent; -webkit-background-clip: text; background-clip: text; background-size: 250% 100%; animation: shimmer 1.8s linear infinite;
+    background-image: linear-gradient(90deg, var(--muted) 0%, var(--muted) 38%, #C9C5D6 50%, var(--muted) 62%, var(--muted) 100%); }
+  .skel { height: 130px; border-radius: 22px; background: linear-gradient(90deg, rgba(18,15,36,.035) 0%, rgba(18,15,36,.075) 50%, rgba(18,15,36,.035) 100%) 0 0 / 200% 100%;
+    animation: skel 1.5s linear infinite; }
+  @keyframes skel { from { background-position: 200% 0; } to { background-position: 0 0; } }
+  .card.errc p { color: #B23A20; font-size: 14px; }
+  .card.errc .pillbtn { margin-top: 12px; }
+
+  .hlist { display: flex; flex-direction: column; gap: 8px; }
+  .hrow { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border-radius: 18px; background: var(--glass); border: 0; width: 100%;
+    text-align: left; cursor: pointer; box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px var(--line), 0 10px 26px -20px rgba(18,15,36,.3);
+    transition: transform .3s var(--spring), box-shadow .3s var(--smooth); }
+  .hrow:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(255,255,255,.9) inset, 0 0 0 1px var(--line), 0 16px 34px -20px rgba(18,15,36,.38); }
+  .hrow:active { transform: scale(.99); }
+  #history.on .hrow { animation: rise-in .65s var(--smooth) backwards; animation-delay: calc(var(--i, 0) * 45ms + 40ms); }
+  .hrow .sc { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; font-weight: 700; font-size: 16px; flex: none;
+    background: var(--field); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hrow .sc.good { background: #E3F8EF; color: #0A7A56; } .hrow .sc.mid { background: #FFF3DC; color: #8A5A00; } .hrow .sc.bad { background: #FFECE7; color: #C23D22; }
+  .hrow .ti { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hrow .me { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .hrow .mid2 { flex: 1; min-width: 0; }
+  .empty { text-align: center; color: var(--muted); font-size: 14px; padding: 60px 0; line-height: 1.6; }
+  .empty b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 4px; }
+
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translate(-50%, 16px); opacity: 0; background: var(--ink); color: #fff;
+    padding: 9px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 70; pointer-events: none;
+    transition: opacity .3s var(--smooth), transform .45s var(--spring); }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ================= Stora loggan (intro och avslutning) ================= */
+  .bigmark { position: relative; width: 84px; height: 84px; border-radius: 26px; display: flex; align-items: center;
+    justify-content: center; gap: 5px; background: linear-gradient(140deg, var(--violet-2), var(--violet));
+    box-shadow: 0 24px 56px -16px rgba(91,61,245,.7), inset 0 1px 0 rgba(255,255,255,.3); }
+  .bigmark b { width: 5px; border-radius: 3px; background: #fff; }
+  .bigmark b:nth-child(1) { height: 15px; } .bigmark b:nth-child(2) { height: 28px; } .bigmark b:nth-child(3) { height: 40px; }
+  .bigmark b:nth-child(4) { height: 26px; } .bigmark b:nth-child(5) { height: 13px; }
+  .markwrap { position: relative; }
+  .flare { position: absolute; left: 50%; top: 50%; width: 380px; height: 380px; margin: -190px 0 0 -190px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(139,108,255,.42), rgba(139,108,255,.12) 55%, rgba(139,108,255,0)); opacity: 0; pointer-events: none; }
+  @keyframes mark-in { from { opacity: 0; transform: scale(.25) rotate(-16deg); filter: blur(10px); } }
+  @keyframes wake { 0% { transform: scaleY(.1); } 55% { transform: scaleY(1.35); } 80% { transform: scaleY(.85); } 100% { transform: scaleY(1); } }
+  @keyframes wave { 0% { transform: scaleY(.25); } 20% { transform: scaleY(1.3); } 40% { transform: scaleY(.55); } 60% { transform: scaleY(1.18); } 80% { transform: scaleY(.75); } 100% { transform: scaleY(1); } }
+
+  /* ================= Intro: rösten vaknar, sedan zoomar vi in genom loggan ================= */
+  .intro { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; background: var(--bg); }
+  body.intro-on .intro { display: flex; }
+  body.intro-on:not(.intro-play) .intro-stack { opacity: 0; }   /* tom bakgrund tills fönstret visas */
+  body.intro-play .intro .flare { animation: flare-in 1.6s var(--smooth) backwards; opacity: 1; }
+  @keyframes flare-in { from { opacity: 0; transform: scale(.15); } }
+  .intro-stack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  body.intro-play .intro .bigmark { animation: mark-in .9s var(--spring) .05s backwards; }
+  body.intro-play .intro .bigmark b { animation: wake .7s var(--smooth) backwards; }
+  .intro .bigmark b:nth-child(1) { animation-delay: .34s !important; } .intro .bigmark b:nth-child(2) { animation-delay: .41s !important; }
+  .intro .bigmark b:nth-child(3) { animation-delay: .48s !important; } .intro .bigmark b:nth-child(4) { animation-delay: .55s !important; }
+  .intro .bigmark b:nth-child(5) { animation-delay: .62s !important; }
+  .intro-word { font-size: 32px; font-weight: 600; letter-spacing: -.035em; color: var(--ink); }
+  body.intro-play .intro-word { animation: track-in 1.1s var(--smooth) .5s backwards; }
+  @keyframes track-in { from { opacity: 0; letter-spacing: .45em; filter: blur(8px); } }
+  body.intro-out .intro { animation: intro-fade .8s var(--smooth) .12s forwards; pointer-events: none; }
+  @keyframes intro-fade { to { opacity: 0; } }
+  body.intro-out .intro-stack { animation: zoom-through .8s cubic-bezier(.55,0,.25,1) forwards; }
+  @keyframes zoom-through { to { opacity: 0; transform: scale(4.5); filter: blur(22px); } }
+
+  /* ================= Avslutning: appen sugs in i loggan, rösten tystnar, ljuset slocknar ================= */
+  .outro { position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column; align-items: center;
+    justify-content: center; gap: 22px; pointer-events: none; }
+  body.exiting { pointer-events: none; }
+  body.exiting .outro { display: flex; }
+  body.exiting .view.on { animation: collapse .65s cubic-bezier(.6,0,.3,1) forwards; }
+  body.exiting .titlebar { animation: fade-out .3s var(--smooth) forwards; }
+  @keyframes collapse { to { opacity: 0; transform: scale(.55); filter: blur(18px); } }
+  @keyframes fade-out { to { opacity: 0; } }
+  body.exiting .aura { animation: aura-out 1.1s var(--smooth) forwards; }
+  @keyframes aura-out { to { opacity: 0; transform: scale(.5); } }
+
+  body.exiting .outro .bigmark { animation: mark-in .8s var(--spring) .18s backwards; }
+  body.exiting .outro .bigmark b { animation: wave 1s cubic-bezier(.45,0,.2,1) backwards; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(1) { animation-delay: .34s; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(2) { animation-delay: .40s; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(3) { animation-delay: .46s; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(4) { animation-delay: .52s; }
+  body.exiting:not(.exiting-2) .outro .bigmark b:nth-child(5) { animation-delay: .58s; }
+  .outro .bigmark::before, .outro .bigmark::after { content: ""; position: absolute; inset: 0; border-radius: inherit;
+    box-shadow: 0 0 0 1px rgba(91,61,245,.45); opacity: 0; }
+  body.exiting .outro .bigmark::before { animation: ripple 1.2s var(--smooth) .42s; }
+  body.exiting .outro .bigmark::after { animation: ripple 1.2s var(--smooth) .64s; }
+  @keyframes ripple { from { opacity: .7; transform: scale(1); } 60% { opacity: .15; } to { opacity: 0; transform: scale(2.5); } }
+  .outro-txt { font-size: 22px; font-weight: 600; letter-spacing: -.025em; color: var(--ink); }
+  body.exiting .outro-txt { animation: txt-in .7s var(--smooth) .45s backwards; }
+  @keyframes txt-in { from { opacity: 0; transform: translateY(8px); filter: blur(6px); } }
+
+  /* Andra akten: staplarna tystnar, loggan krymper in i ett ljus som slocknar */
+  body.exiting-2 .outro .bigmark b { animation: hush .32s var(--smooth) forwards; }
+  @keyframes hush { to { transform: scaleY(.13); } }
+  body.exiting-2 .outro .bigmark { animation: mark-out .5s cubic-bezier(.6,0,.4,1) .18s forwards; }
+  @keyframes mark-out { to { transform: scale(.15); opacity: 0; filter: blur(6px); } }
+  body.exiting-2 .outro-txt { animation: txt-out .4s var(--smooth) forwards; }
+  @keyframes txt-out { to { opacity: 0; transform: translateY(-6px); filter: blur(6px); } }
+  body.exiting-2 .outro .flare { animation: flare-out .75s var(--smooth) .22s forwards; }
+  @keyframes flare-out { 0% { opacity: 0; transform: scale(.2); } 35% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.7); } }
+
+  /* ================= Minimera: "genie" ner mot aktivitetsfältet, och tillbaka ================= */
+  body.minimizing { animation: genie-out .42s cubic-bezier(.55,0,.8,.2) forwards; transform-origin: 50% 100%; pointer-events: none; }
+  body.restoring { animation: genie-in .55s cubic-bezier(.2,.9,.25,1) both; transform-origin: 50% 100%; }
+  @keyframes genie-out {
+    0%   { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: none; opacity: 1; filter: blur(0); }
+    45%  { clip-path: polygon(4% 0, 96% 0, 64% 100%, 36% 100%); transform: translateY(8%) scaleY(.85); opacity: 1; }
+    100% { clip-path: polygon(42% 0, 58% 0, 51% 100%, 49% 100%); transform: translateY(75%) scaleY(.2); opacity: 0; filter: blur(4px); }
+  }
+  @keyframes genie-in {
+    0%   { clip-path: polygon(42% 0, 58% 0, 51% 100%, 49% 100%); transform: translateY(75%) scaleY(.2); opacity: 0; filter: blur(4px); }
+    55%  { clip-path: polygon(4% 0, 96% 0, 64% 100%, 36% 100%); transform: translateY(4%) scaleY(.92); opacity: 1; filter: blur(0); }
+    100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: none; opacity: 1; }
+  }
+
+  /* ================= Start: formuläret tonar bort medan vi ansluter ================= */
+  .launch { position: fixed; inset: 0; z-index: 40; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; font-size: 13.5px; font-weight: 500; color: var(--muted); pointer-events: none; }
+  body.launching .launch { display: flex; animation: fade-in .4s var(--smooth) .12s backwards; }
+  body.launching #setup.on { animation: launch-out .4s var(--smooth) forwards; }
+  @keyframes launch-out { to { opacity: 0; transform: scale(.97); filter: blur(10px); } }
+  .minibars { display: flex; align-items: center; gap: 4px; height: 26px; }
+  .minibars b { width: 4px; height: 24px; border-radius: 2px; background: var(--violet); animation: bounce 1s ease-in-out infinite; }
+  .minibars b:nth-child(2) { animation-delay: .1s; } .minibars b:nth-child(3) { animation-delay: .2s; }
+  .minibars b:nth-child(4) { animation-delay: .3s; } .minibars b:nth-child(5) { animation-delay: .4s; }
+  @keyframes bounce { 0%, 100% { transform: scaleY(.3); opacity: .5; } 50% { transform: scaleY(1); opacity: 1; } }
+
+  /* ================= Små detaljer ================= */
+  /* mjukt ljus som följer muspekaren över korten */
+  .tile { position: relative; isolation: isolate; }
+  .tile::before { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; pointer-events: none; opacity: 0;
+    background: radial-gradient(280px circle at var(--mx, 50%) var(--my, 0%), rgba(139,108,255,.09), transparent 70%);
+    transition: opacity .5s var(--smooth); }
+  .tile:hover::before { opacity: 1; }
+  /* glansstrimma över startknappen */
+  .cta { position: relative; overflow: hidden; }
+  .cta::after { content: ""; position: absolute; inset: 0; pointer-events: none; transform: translateX(-130%);
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.2) 50%, transparent 70%); }
+  .cta:hover::after { transform: translateX(130%); transition: transform 1s var(--smooth); }
+  /* innehållet tonar mjukt i kanterna när man scrollar */
+  #setup .content { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 22px), transparent 100%); }
+  /* röstpillerna får en mjuk ring när någon pratar */
+  .voice.you.on { box-shadow: 0 0 0 3px rgba(16,185,129,.12); }
+  .voice.them.on { box-shadow: 0 0 0 3px rgba(255,106,77,.12); }
+  /* pausat: kortet vilar */
+  .stage { transition: box-shadow .6s var(--smooth), opacity .5s var(--smooth); }
+  body.paused .stage { opacity: .55; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  }
 </style>
 </head>
-<body>
+<body class="intro-on">
 <div class="aura"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+<div class="intro" aria-hidden="true">
+  <div class="intro-stack">
+    <div class="markwrap"><div class="flare"></div><div class="bigmark"><b></b><b></b><b></b><b></b><b></b></div></div>
+    <div class="intro-word">Viska</div>
+  </div>
+</div>
+<div class="outro" aria-hidden="true">
+  <div class="markwrap"><div class="flare"></div><div class="bigmark"><b></b><b></b><b></b><b></b><b></b></div></div>
+  <div class="outro-txt">Vi hörs.</div>
+</div>
+<div class="launch" aria-hidden="true">
+  <div class="minibars"><b></b><b></b><b></b><b></b><b></b></div>
+  <span>Ansluter</span>
+</div>
 
 <header class="titlebar pywebview-drag-region">
   <div class="mark"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg></div>
@@ -215,18 +567,46 @@
     <span class="voice them" id="vThem"><span class="bars"><b></b><b></b><b></b></span><span id="vThemLbl">Motpart</span></span>
   </div>
   <div class="winbtns">
-    <button title="Minimera" onclick="pywebview.api.minimize()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
-    <button class="x" title="Stäng" onclick="pywebview.api.close()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <button title="Minimera" onclick="minimizeApp()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+    <button class="x" title="Stäng" onclick="quit()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
 </header>
+
+<!-- ================= Uppstartsguide (första starten, och via Inställningar) ================= -->
+<main id="onboard" class="view" aria-label="Uppstart">
+  <div class="ob-horizon" aria-hidden="true"></div>
+  <div class="ob-stage">
+    <div class="ob-top">
+      <button class="ob-link" id="obBack" type="button" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Tillbaka</button>
+      <div class="ob-eq" id="obEq" aria-hidden="true"><i style="--k:0"></i><i style="--k:1"></i><i style="--k:2"></i><i style="--k:3"></i><i style="--k:4"></i></div>
+      <button class="ob-link" id="obClose" type="button" hidden>Stäng</button>
+    </div>
+    <div class="ob-body" id="obBody"></div>
+    <div class="ob-foot">
+      <span class="ob-hint" id="obHint"></span>
+      <button class="cta" id="obNext" type="button" hidden><span id="obNextTxt">Fortsätt</span><span class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>
+    </div>
+  </div>
+</main>
 
 <!-- ================= Startformulär ================= -->
 <main id="setup" class="view on">
   <div class="content">
     <div class="hero">
+      <div class="hero-actions">
+        <button class="pillbtn histbtn" id="setBtn" type="button" title="Ändra namn, motor och modeller">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>Inställningar
+        </button>
+        <button class="pillbtn histbtn" id="histBtn" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Tidigare samtal
+        </button>
+      </div>
       <h1>Vem ringer du <em>idag?</em></h1>
       <p>Fyll i en gång. Allt sparas till nästa samtal.</p>
-      <input class="who" id="who" type="text" placeholder="Anna Berg, rektor på Solskolan" autocomplete="off">
+      <div class="ident">
+        <label><span class="sub">Du ringer</span><input class="who" id="who" type="text" placeholder="Anna Berg, rektor på Solskolan" autocomplete="off"></label>
+        <label><span class="sub">Du är</span><input class="who" id="me" type="text" placeholder="Ditt namn, företag" autocomplete="off"></label>
+      </div>
     </div>
 
     <div class="bento">
@@ -250,6 +630,7 @@
           <h2>Mål<small>Vad är en vinst?</small></h2>
         </div>
         <div class="goals" id="goals">
+          <span class="thumb"></span>
           <button class="goal" type="button"><i></i>Sälja</button>
           <button class="goal" type="button"><i></i>Boka möte</button>
           <button class="goal" type="button"><i></i>Följa upp</button>
@@ -279,6 +660,7 @@
           <h2>Ljud<small>Ring via datorn (Teams, Meet, WhatsApp) med headset, så hörs motparten.</small></h2>
         </div>
         <div class="modes" id="modes" role="radiogroup" aria-label="Ring via">
+          <span class="thumb"></span>
           <button class="mode" type="button" data-mode="computer"><b>Dator</b><small>Teams, Meet, WhatsApp. Motparten hörs via datorns ljud.</small></button>
           <button class="mode" type="button" data-mode="phone"><b>Telefon på högtalare</b><small>Lägg telefonen nära datorns mikrofon. Allt hörs via mikrofonen.</small></button>
         </div>
@@ -308,11 +690,11 @@
 <main id="live" class="view">
   <div class="consent" id="consent">
     <span>Säg först: <b>"Samtalet transkriberas med AI, okej?"</b></span>
-    <button onclick="this.parentElement.remove()">Klart</button>
+    <button onclick="dismissConsent(this.parentElement)">Klart</button>
   </div>
 
   <section class="stage" id="stage">
-    <div class="say-lbl"><i></i>Säg det här</div>
+    <div class="say-lbl"><i></i><span>Säg det här</span></div>
     <div id="main" class="wait">Väntar på att motparten pratar …</div>
     <div id="alts"></div>
   </section>
@@ -337,12 +719,48 @@
   </div>
 </main>
 
+<!-- ================= Efter samtalet ================= -->
+<main id="summary" class="view">
+  <div class="scroll" id="sumScroll">
+    <div class="sum-top">
+      <button class="pillbtn" id="sumNew" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Nytt samtal
+      </button>
+      <span class="sp"></span>
+      <button class="pillbtn" id="sumHist" type="button">Tidigare samtal</button>
+      <button class="pillbtn dark" id="sumCopy" type="button">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Kopiera
+      </button>
+    </div>
+    <div class="sum-meta" id="sumMeta"></div>
+    <div class="sum-title" id="sumTitle"></div>
+    <div class="pills" id="sumPills"></div>
+    <div id="sumBody"></div>
+  </div>
+</main>
+
+<!-- ================= Tidigare samtal ================= -->
+<main id="history" class="view">
+  <div class="scroll">
+    <div class="sum-top">
+      <button class="pillbtn" id="histBack" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Tillbaka
+      </button>
+    </div>
+    <div class="sum-title">Tidigare samtal</div>
+    <div class="pills"><span class="pill" id="histCount"></span></div>
+    <div class="hlist" id="hlist"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
 <script>
 window.__errs = [];
 window.addEventListener("error", (e) => window.__errs.push(String(e.message) + " @" + e.lineno));
 window.addEventListener("unhandledrejection", (e) => window.__errs.push("promise: " + String(e.reason)));
 const $ = (id) => document.getElementById(id);
-const FIELDS = ["who", "product", "price", "args", "notes"];
+const FIELDS = ["who", "me", "product", "price", "args", "notes"];
 let goal = "Boka möte", paused = false, live = false, t0 = 0, clockTimer = null, streaming = false;
 
 let mode = "computer";
@@ -352,6 +770,17 @@ function setMode(m) {
   $("loopField").hidden = mode === "phone";
   $("micLbl").textContent = mode === "phone" ? "Mikrofon (hör hela samtalet)" : "Din mikrofon";
   $("audio").classList.toggle("one", mode === "phone");
+  moveThumb($("modes"));
+}
+
+// Den vita markeringen glider till valt alternativ (som en segmenterad kontroll på iOS).
+function moveThumb(group) {
+  const on = group.querySelector(".on"), t = group.querySelector(".thumb");
+  if (!on || !t || !on.offsetWidth) return;
+  t.style.width = on.offsetWidth + "px";
+  t.style.height = on.offsetHeight + "px";
+  t.style.transform = `translate(${on.offsetLeft}px, ${on.offsetTop}px)`;
+  if (!t.classList.contains("ready")) requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add("ready")));
 }
 document.querySelectorAll(".mode").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 setMode(mode);
@@ -359,9 +788,12 @@ setMode(mode);
 function setGoal(v) {
   goal = v;
   document.querySelectorAll(".goal").forEach(b => b.classList.toggle("on", b.textContent.trim() === v));
+  moveThumb($("goals"));
 }
 document.querySelectorAll(".goal").forEach(b => b.onclick = () => setGoal(b.textContent.trim()));
 setGoal(goal);
+const thumbRO = new ResizeObserver(es => es.forEach(e => moveThumb(e.target)));
+["goals", "modes"].forEach(id => thumbRO.observe($(id)));
 
 function fillSelect(el, items, sel) {
   el.innerHTML = "";
@@ -383,6 +815,11 @@ function boot() {
 }
 async function load() {
   const s = await pywebview.api.init();
+  window.__init = s;
+  if (!s.setupDone) {                       // första starten: uppstartsguiden
+    for (let k = 0; k < 60 && typeof startOnboarding !== "function"; k++) await new Promise(r => setTimeout(r, 50));
+    if (typeof startOnboarding === "function") startOnboarding();
+  }
   FIELDS.forEach(f => $(f).value = s.form[f] || "");
   setGoal(s.form.goal || "Boka möte");
   setMode(s.mode);
@@ -424,13 +861,21 @@ async function start() {
   await ready;  // spara aldrig ett halvladdat (tomt) formulär
   $("err").textContent = "";
   $("startBtn").disabled = true;
+  // Tona bara bort formuläret om anslutningen tar en stund (snabba fel ska inte blinka).
+  const lt = setTimeout(() => document.body.classList.add("launching"), 120);
   const r = await pywebview.api.start(collect());
+  clearTimeout(lt);
+  document.body.classList.remove("launching");
   $("startBtn").disabled = false;
-  if (!r.ok) { $("err").textContent = r.error; return; }
+  if (!r.ok) { showErr(r.error); return; }
   enterLive();
 }
 $("startBtn").onclick = start;
-$("stopBtn").onclick = async () => { await pywebview.api.stop(); exitLive(); };
+$("stopBtn").onclick = async () => {
+  const r = await pywebview.api.stop();
+  exitLive();
+  if (r && r.id) openSummary(r.id, true);    // något sades: visa analysen (den laddas i bakgrunden)
+};
 async function togglePause() {
   paused = await pywebview.api.pause(!paused);
   $("pauseBtn").innerHTML = paused
@@ -445,7 +890,8 @@ function force() { $("stage").classList.add("thinking"); pywebview.api.force(); 
 $("forceBtn").onclick = force;
 
 document.addEventListener("keydown", (e) => {
-  if (!live && e.ctrlKey && e.key === "Enter") { start(); return; }
+  if (!live && e.ctrlKey && e.key === "Enter" && $("setup").classList.contains("on")) { start(); return; }
+  if (!live && e.key === "Escape" && !$("setup").classList.contains("on") && !(typeof OB !== "undefined" && OB.on)) { showView("setup"); return; }
   if (!live || e.target.matches("input, textarea")) return;
   if (e.code === "Space") { e.preventDefault(); if (!e.repeat) pttDown(); return; }
   const k = e.key.toLowerCase();
@@ -457,24 +903,404 @@ document.addEventListener("keydown", (e) => {
 function showSuggestion(text, fresh) {
   const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
   if (!lines.length) return;
-  const main = $("main");
-  main.classList.remove("wait");
-  if (fresh) { main.classList.remove("fresh"); void main.offsetWidth; main.classList.add("fresh"); }
-  main.textContent = lines[0];
+  setMain(lines[0], fresh);
+  // Uppdatera alternativen på plats, så de bara animeras in första gången och inte flimrar under strömning.
   const alts = $("alts");
-  alts.innerHTML = "";
-  lines.slice(1, 3).forEach((l, i) => {
-    const b = document.createElement("button");
-    const k = document.createElement("kbd"); k.textContent = i + 1;
-    const s = document.createElement("span"); s.textContent = l.replace(/^[-•*]\s*/, "");
-    b.append(k, s);
-    b.onclick = () => {
-      const cur = main.textContent;
-      main.textContent = s.textContent; s.textContent = cur;
-      main.classList.remove("fresh"); void main.offsetWidth; main.classList.add("fresh");
-    };
-    alts.appendChild(b);
+  const want = lines.slice(1, 3).map(l => l.replace(/^[-•*]\s*/, ""));
+  while (alts.children.length > want.length) alts.lastChild.remove();
+  want.forEach((txt, i) => {
+    let b = alts.children[i];
+    if (!b) {
+      b = document.createElement("button");
+      const k = document.createElement("kbd"); k.textContent = i + 1;
+      const s = document.createElement("span");
+      b.append(k, s);
+      b.onclick = () => {
+        const sp = b.lastChild, cur = $("main").textContent;
+        setMain(sp.textContent, true);
+        sp.textContent = cur;
+      };
+      alts.appendChild(b);
+    }
+    b.lastChild.textContent = txt;
   });
+}
+
+// Huvudförslaget som ord-spann: bara nya ord tonar fram, ord som redan syns rörs inte.
+function setMain(text, all) {
+  const main = $("main");
+  const words = text.split(/\s+/).filter(Boolean);
+  const reset = all || main.classList.contains("wait");
+  if (reset) main.textContent = "";
+  main.classList.remove("wait");
+  const spans = [...main.querySelectorAll(".w")];
+  let i = 0;
+  while (i < spans.length && i < words.length) {
+    const old = spans[i].textContent;
+    if (old === words[i]) { i++; continue; }
+    // sista ordet växer medan det strömmar in ("må" -> "månaden"): uppdatera utan ny animation
+    if (i === spans.length - 1 && words[i].startsWith(old)) { spans[i].textContent = words[i]; i++; continue; }
+    break;
+  }
+  for (let j = spans.length - 1; j >= i; j--) {
+    const prev = spans[j].previousSibling;
+    if (prev && prev.nodeType === 3) prev.remove();
+    spans[j].remove();
+  }
+  for (let k = i; k < words.length; k++) {
+    if (main.childNodes.length) main.append(" ");
+    const s = document.createElement("span");
+    s.className = "w";
+    s.textContent = words[k];
+    s.style.animationDelay = Math.min((k - i) * 30, 360) + "ms";
+    main.append(s);
+  }
+}
+function flash(el) { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+
+// Stäng: spela avslutningen, sedan tonar Python ut själva fönstret och avslutar.
+let quitting = false;
+function quit() {
+  if (quitting) return;
+  quitting = true;
+  document.body.classList.add("exiting");
+  setTimeout(() => document.body.classList.add("exiting-2"), 1050);   // andra akten: rösten tystnar
+  setTimeout(() => pywebview.api.close(), 1300);                       // Python tonar ut fönstret
+}
+
+// Minimera med "genie"-effekt. Python tonar ut fönstret samtidigt och minimerar det sedan.
+let minimizing = false, minimizedAt = 0;
+function minimizeApp() {
+  if (minimizing || quitting) return;
+  minimizing = true;
+  minimizedAt = Date.now();
+  document.body.classList.remove("restoring");
+  document.body.classList.add("minimizing");
+  pywebview.api.minimize();
+}
+function restoredApp() {     // anropas av Python när fönstret visas igen
+  try { pywebview.api.ensure_visible(); } catch (e) {}
+  if (!minimizing) return;
+  minimizing = false;
+  const b = document.body;
+  b.classList.remove("minimizing");
+  b.classList.add("restoring");
+  setTimeout(() => b.classList.remove("restoring"), 650);
+}
+// Reserv om händelsen från Python uteblir: fönstret får fokus igen efter att ha minimerats.
+window.addEventListener("focus", () => { if (minimizing && Date.now() - minimizedAt > 700) restoredApp(); });
+
+// När fönstret visas lägger WebView2 tangentbordsfokus på första knappen (en svart ram runt minimera).
+// Släpp den så fort fönstret är uppe; Tab visar fortfarande fokusramen som vanligt.
+function clearStartFocus() {
+  const a = document.activeElement;
+  if (a && a !== document.body && a.closest && a.closest(".winbtns")) a.blur();
+}
+window.addEventListener("focus", () => { clearStartFocus(); setTimeout(clearStartFocus, 150); });
+[400, 1200, 2400].forEach(t => setTimeout(clearStartFocus, t));
+
+// Intro: loggan vaknar, sedan zoomar vi in genom den och appen landar. Klick eller tangent hoppar över.
+// Python visar fönstret först när sidan har laddat och anropar då startIntro().
+let introStarted = false;
+function startIntro() {
+  if (introStarted) return;
+  introStarted = true;
+  runIntro();
+}
+setTimeout(() => { if (!window.pywebview) startIntro(); }, 600);   // vanlig webbläsare (designkontroll)
+setTimeout(startIntro, 5000);                                       // säkerhetsnät: täck aldrig appen för gott
+function runIntro() {
+  const b = document.body;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { b.classList.remove("intro-on"); return; }
+  b.classList.add("intro-play");
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    b.classList.add("intro-out");
+    const v = document.querySelector(".view.on");      // spela upp vyns entré igen nu när den syns
+    if (v) { v.classList.remove("on"); void v.offsetWidth; v.classList.add("on"); }
+    setTimeout(() => b.classList.remove("intro-on", "intro-play", "intro-out"), 950);
+  };
+  setTimeout(finish, 1550);
+  addEventListener("pointerdown", finish, { once: true });
+  addEventListener("keydown", finish, { once: true });
+}
+
+// Mjukt ljus som följer pekaren över korten
+document.querySelectorAll(".tile").forEach(t => t.addEventListener("pointermove", (e) => {
+  const r = t.getBoundingClientRect();
+  t.style.setProperty("--mx", (e.clientX - r.left) + "px");
+  t.style.setProperty("--my", (e.clientY - r.top) + "px");
+}));
+
+// ================= Vyer =================
+function showView(id) {
+  ["setup", "live", "summary", "history", "onboard"].forEach(v => $(v).classList.toggle("on", v === id));
+}
+
+// ================= Analys efter samtalet =================
+let sumId = null, sumRec = null;
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+function card(cls, title, i) {
+  const c = el("section", "card " + (cls || ""));
+  c.style.setProperty("--i", i);
+  if (title) c.append(el("h3", "", title));
+  return c;
+}
+function list(items, emptyText) {
+  if (!items || !items.length) return el("div", "none", emptyText || "Inget särskilt.");
+  const ul = el("ul");
+  items.forEach(t => ul.append(el("li", "", t)));
+  return ul;
+}
+const OUTCOME_CLS = { "Sålt": "good", "Bokat möte": "good", "Uppföljning": "violet", "Nej tack": "bad", "Oklart": "" };
+const SENT_CLS = { "Positiv": "good", "Neutral": "", "Negativ": "bad" };
+function scoreCls(s) { return s >= 75 ? "good" : s >= 50 ? "mid" : "bad"; }
+function fmtDur(s) { s = Math.round(s || 0); return s < 60 ? s + " s" : Math.floor(s / 60) + " min " + (s % 60) + " s"; }
+function fmtClock(t) { t = Math.floor(t || 0); return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); }
+function fmtWhen(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return d.toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long" }) + " · " +
+         d.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+}
+function words(rec, who) {
+  return (rec.transcript || []).filter(l => l.who === who).reduce((n, l) => n + l.text.split(/\s+/).filter(Boolean).length, 0);
+}
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), 1800);
+}
+async function copyText(txt) {
+  try { await navigator.clipboard.writeText(txt); }
+  catch (e) {
+    const ta = el("textarea"); ta.value = txt; document.body.append(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+  }
+  toast("Kopierat");
+}
+
+async function openSummary(id, pending) {
+  sumId = id;
+  showView("summary");
+  $("sumScroll").scrollTop = 0;
+  const rec = await pywebview.api.get_call(id);
+  if (!rec) { showView("setup"); return; }
+  renderSummary(rec, pending && !rec.summary && !rec.summary_error);
+}
+
+function renderSummary(rec, loading) {
+  sumRec = rec;
+  const s = rec.summary;
+  const dur = rec.duration || 0;
+  $("sumMeta").textContent = [fmtWhen(rec.started), fmtDur(dur)].filter(Boolean).join(" · ");
+  $("sumTitle").textContent = (s && s.title) || rec.form && rec.form.who || "Samtal";
+  const pills = $("sumPills");
+  pills.replaceChildren();
+  if (s) {
+    pills.append(el("span", "pill " + (OUTCOME_CLS[s.outcome] || ""), s.outcome));
+    if (s.sentiment) pills.append(el("span", "pill " + (SENT_CLS[s.sentiment] || ""), "Stämning: " + s.sentiment.toLowerCase()));
+  }
+  pills.append(el("span", "pill", rec.mode === "phone" ? "Telefon" : "Dator"));
+
+  const body = $("sumBody");
+  body.replaceChildren();
+  const grid = el("div", "sgrid");
+  body.append(grid);
+  let i = 0;
+
+  if (loading) {
+    const a = el("div", "analyzing");
+    const bars = el("div", "minibars");
+    for (let k = 0; k < 5; k++) bars.append(el("b"));
+    a.append(bars, el("span", "", "Analyserar samtalet …"));
+    body.prepend(a);
+    ["", "c2", "c3", "c2", ""].forEach(c => { const sk = el("div", "skel " + c); if (c) sk.style.gridColumn = c === "c3" ? "span 3" : "span 2"; grid.append(sk); });
+  } else if (!s) {
+    const c = card("c3 errc", "Analysen misslyckades", i++);
+    c.append(el("p", "", rec.summary_error || "Okänt fel."));
+    const b = el("button", "pillbtn dark", "Försök igen");
+    b.onclick = () => { pywebview.api.retry_summary(rec.id); renderSummary(rec, true); };
+    c.append(b);
+    grid.append(c);
+  } else {
+    // Poäng
+    const sc = card("scorecard", null, i++);
+    const ring = el("div", "ring");
+    const R = 58, C = 2 * Math.PI * R;
+    ring.innerHTML = `<svg width="136" height="136" viewBox="0 0 136 136"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B6CFF"/><stop offset="1" stop-color="#5B3DF5"/></linearGradient></defs>
+      <circle class="track" cx="68" cy="68" r="${R}" fill="none" stroke-width="12"/>
+      <circle class="arc" cx="68" cy="68" r="${R}" fill="none" stroke="url(#rg)" stroke-width="12" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg>`;
+    const num = el("div", "num", "0");
+    num.append(el("small", "", "av 100"));
+    ring.append(num);
+    sc.append(ring, el("div", "why", s.score_reason || ""));
+    grid.append(sc);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      ring.querySelector(".arc").style.strokeDashoffset = C * (1 - s.score / 100);
+    }));
+    const t0 = performance.now() + 350;
+    (function tick(now) {           // räkna upp siffran i takt med ringen
+      const p = Math.min(1, Math.max(0, (now - t0) / 1500));
+      num.firstChild.nodeValue = Math.round(s.score * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(tick);
+    })(performance.now());
+
+    // Sammanfattning + talfördelning
+    const sm = card("c2", "Sammanfattning", i++);
+    sm.append(el("p", "", s.summary));
+    if (s.outcome_text) sm.append(el("p", "sub2", s.outcome_text));
+    const du = words(rec, "Du"), mp = words(rec, "Motpart"), tot = Math.max(1, du + mp);
+    const ratio = el("div", "ratio");
+    const bar = el("div", "bar"), y = el("div", "you"), t = el("div", "them");
+    bar.append(y, t);
+    const lg = el("div", "legend");
+    const l1 = el("span"); l1.append("Du pratade ", el("b", "", Math.round(du / tot * 100) + " %"));
+    const l2 = el("span"); l2.append("Motparten ", el("b", "", Math.round(mp / tot * 100) + " %"));
+    lg.append(l1, l2);
+    ratio.append(bar, lg);
+    sm.append(ratio);
+    grid.append(sm);
+    requestAnimationFrame(() => requestAnimationFrame(() => { y.style.width = (du / tot * 100) + "%"; t.style.width = (mp / tot * 100) + "%"; }));
+
+    // Nästa steg
+    if (s.next_step) { const n = card("c3 next", "Nästa steg", i++); n.append(el("p", "", s.next_step)); grid.append(n); }
+
+    // Att göra
+    const td = card("c2", "Att göra", i++);
+    if (!s.todos.length) td.append(el("div", "none", "Inga uppgifter från samtalet."));
+    s.todos.forEach((x, k) => {
+      const b = el("button", "todo" + (x.done ? " done" : ""));
+      b.type = "button";
+      const box = el("span", "box");
+      box.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+      const txt = el("div");
+      txt.append(el("div", "t", x.task), el("div", "towner", [x.owner === "Motpart" ? "Motparten" : "Du", x.due].filter(Boolean).join(" · ")));
+      b.append(box, txt);
+      b.onclick = () => { x.done = !x.done; b.classList.toggle("done", x.done); pywebview.api.set_todo(rec.id, k, x.done); };
+      td.append(b);
+    });
+    grid.append(td);
+
+    // Siffror
+    const st = card("", "Samtalet", i++);
+    const stats = el("div", "stats");
+    [[fmtDur(dur), "längd"], [(rec.transcript || []).length, "repliker"], [(rec.suggestions || []).length, "förslag från coachen"]].forEach(([v, l]) => {
+      const d = el("div", "stat"); d.append(el("b", "", v), el("span", "", l)); stats.append(d);
+    });
+    st.append(stats);
+    grid.append(st);
+
+    // Vad som sades + hur det gick
+    const c1 = card("", "Vad de sa", i++); c1.append(list(s.they_said)); grid.append(c1);
+    const c2 = card("", "Vad du sa", i++); c2.append(list(s.you_said)); grid.append(c2);
+    const c3 = card("good-l", "Det här gick bra", i++); c3.append(list(s.strengths)); grid.append(c3);
+    const c4 = card("imp-l", "Gör bättre nästa gång", i++); c4.append(list(s.improvements)); grid.append(c4);
+
+    // Invändningar
+    const ob = card("c2", "Invändningar", i++);
+    if (!s.objections.length) ob.append(el("div", "none", "Inga tydliga invändningar."));
+    s.objections.forEach(o => {
+      const d = el("div", "obj");
+      const better = el("div", "b"); better.append(el("em", "", "Bättre svar: "), o.better_reply);
+      d.append(el("div", "q", o.objection), el("div", "h", o.handled), better);
+      ob.append(d);
+    });
+    grid.append(ob);
+
+    // Uppföljningsmejl
+    const em = s.follow_up_email || {};
+    if (em.body) {
+      const m = card("c3 mail", "Uppföljningsmejl", i++);
+      const cb = el("button", "pillbtn act", "Kopiera mejl");
+      cb.onclick = () => copyText((em.subject ? "Ämne: " + em.subject + "\n\n" : "") + em.body);
+      m.querySelector("h3").append(cb);
+      m.append(el("div", "subj", em.subject || ""), el("div", "body", em.body));
+      grid.append(m);
+    }
+  }
+
+  // Hela transkriptionen (alltid, även medan analysen pågår)
+  const tr = card("c3", null, i++);
+  const det = el("details", "tr");
+  const sumEl = el("summary");
+  sumEl.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+  sumEl.append("Hela samtalet (" + (rec.transcript || []).length + " repliker)");
+  const lines = el("div", "lines");
+  (rec.transcript || []).forEach(l => {
+    const row = el("div", "tline");
+    row.append(el("span", "ts", fmtClock(l.t)), el("span", "w " + (l.who === "Du" ? "du" : "mp"), l.who === "Du" ? "Du" : "Motpart"), el("span", "tx", l.text));
+    lines.append(row);
+  });
+  det.append(sumEl, lines);
+  tr.append(det);
+  (loading ? body : grid).append(tr);
+  if (loading) tr.style.marginTop = "14px";
+}
+
+function summaryText(rec) {
+  const s = rec.summary;
+  if (!s) return (rec.transcript || []).map(l => `[${fmtClock(l.t)}] ${l.who}: ${l.text}`).join("\n");
+  const sec = (h, arr) => arr && arr.length ? `\n${h}\n` + arr.map(x => "- " + x).join("\n") + "\n" : "";
+  return `${s.title}\n${fmtWhen(rec.started)} · ${fmtDur(rec.duration)} · ${s.outcome} · ${s.score}/100\n\n${s.summary}\n` +
+    (s.next_step ? `\nNästa steg: ${s.next_step}\n` : "") +
+    sec("Att göra", s.todos.map(t => `${t.task} (${t.owner}${t.due ? ", " + t.due : ""})`)) +
+    sec("Vad de sa", s.they_said) + sec("Vad du sa", s.you_said) +
+    sec("Gick bra", s.strengths) + sec("Gör bättre", s.improvements) +
+    sec("Invändningar", s.objections.map(o => `${o.objection} → ${o.better_reply}`));
+}
+$("sumCopy").onclick = () => { if (sumRec) copyText(summaryText(sumRec)); };
+$("sumNew").onclick = () => showView("setup");
+$("sumHist").onclick = () => openHistory();
+
+// ================= Tidigare samtal =================
+async function openHistory() {
+  showView("history");
+  const rows = await pywebview.api.list_calls();
+  const box = $("hlist");
+  box.replaceChildren();
+  $("histCount").textContent = rows.length === 1 ? "1 samtal" : rows.length + " samtal";
+  if (!rows.length) {
+    const e = el("div", "empty"); e.append(el("b", "", "Inga samtal än"), "När du avslutar ett samtal hamnar analysen här.");
+    box.append(e);
+    return;
+  }
+  rows.forEach((r, k) => {
+    const b = el("button", "hrow");
+    b.type = "button";
+    b.style.setProperty("--i", Math.min(k, 12));
+    const has = typeof r.score === "number";
+    b.append(el("div", "sc " + (has ? scoreCls(r.score) : ""), has ? r.score : "–"));
+    const mid = el("div", "mid2");
+    mid.append(el("div", "ti", r.title || r.who || "Samtal"), el("div", "me", [fmtWhen(r.started), fmtDur(r.duration)].filter(Boolean).join(" · ")));
+    b.append(mid);
+    if (r.outcome) b.append(el("span", "pill " + (OUTCOME_CLS[r.outcome] || ""), r.outcome));
+    b.onclick = () => openSummary(r.id, false);
+    box.append(b);
+  });
+}
+$("histBtn").onclick = openHistory;
+$("setBtn").onclick = () => startOnboarding({ rerun: true });
+$("histBack").onclick = () => showView("setup");
+
+function dismissConsent(el) {
+  el.classList.add("out");
+  setTimeout(() => el.remove(), 380);
+}
+function showErr(msg) {
+  const e = $("err");
+  e.textContent = msg;
+  e.classList.remove("shake"); void e.offsetWidth; e.classList.add("shake");
 }
 
 function setBars(el, v) {
@@ -484,7 +1310,11 @@ function setBars(el, v) {
 }
 
 function onEvent(e) {
-  if (e.kind === "levels") {
+  if (e.kind === "setup") {
+    obEvent(e.data);
+  } else if (e.kind === "summary") {
+    if (e.data && e.data.id === sumId && $("summary").classList.contains("on")) renderSummary(e.data, false);
+  } else if (e.kind === "levels") {
     setBars($("vYou"), e.data["Du"] || 0);
     setBars($("vThem"), e.data["Motpart"] || e.data["Samtal"] || 0);
   } else if (e.kind === "skip") {
@@ -492,6 +1322,7 @@ function onEvent(e) {
     $("lat").textContent = "Det var du som pratade. Behåller förra förslaget.";
     $("lat").classList.remove("bad");
   } else if (e.kind === "partial" || e.kind === "final") {
+    if (!String(e.data || "").trim()) { $("heard").replaceChildren(); return; }
     const b = document.createElement("b"); b.textContent = e.who + ": ";
     $("heard").replaceChildren(b, String(e.data).slice(-180));
     if (e.kind === "final" && (e.who === "Motpart" || e.who === "Samtal") && !paused) $("stage").classList.add("thinking");
@@ -504,6 +1335,7 @@ function onEvent(e) {
       $("lat").innerHTML = `Svar på <b>${s.toFixed(1).replace(".", ",")} s</b>`;
       $("lat").title = "Tid från att motparten tystnade till första ordet";
       $("lat").classList.toggle("bad", s > 2.5);
+      flash($("lat"));
     }
   } else if (e.kind === "error") {
     $("stage").classList.remove("thinking");
@@ -537,5 +1369,6 @@ $("pttBtn").addEventListener("lostpointercapture", pttUp);
 document.addEventListener("keyup", (e) => { if (e.code === "Space") { e.preventDefault(); pttUp(); } });
 window.addEventListener("blur", pttUp);   // tappar fönstret fokus mitt i: släpp
 </script>
+<script src="onboard.js"></script>
 </body>
 </html>
