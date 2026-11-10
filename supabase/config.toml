@@ -1,0 +1,15 @@
+project_id = "hysch"
+
+# Funktionerna kontrollerar inloggningen själva (auth.getUser), eftersom de nya API-nycklarna inte
+# fungerar med Supabases gamla JWT-kontroll. Stripe-webhooken har ingen användare alls: den skyddas av signaturen.
+[functions.openai-proxy]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.customer-portal]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false

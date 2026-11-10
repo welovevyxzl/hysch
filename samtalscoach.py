@@ -5,7 +5,8 @@ Två lägen, valda i uppstartsguiden:
   moln:   tal-till-text gpt-transcribe (gpt-4o-transcribe och whisper-1 som reserv), förslag gpt-6-luna, analys gpt-6.1-terra.
   lokalt: tal-till-text Whisper (faster-whisper, svenska KB-modeller) och text/analys via Ollama.
 Varje replik transkriberas i ett svep när personen tystnat (inte live).
-API-nyckel (moln): miljövariabeln OPENAI_API_KEY, annars .env, annars den sparade inställningen.
+Moln: appen har ingen OpenAI-nyckel. Man loggar in med ett Hysch-konto (account.py) och all AI går via vår
+server, som räknar samtalen mot planen. Lokalt läge kräver också inloggning, så att gratisgränsen går att hålla.
 """
 from __future__ import annotations
 
@@ -24,6 +25,7 @@ except ImportError:                  # Mac/Linux (ej testat): vanlig PortAudio
     import pyaudio as pa
 from openai import OpenAI
 
+import account as A
 import engines as E
 
 IS_WIN = sys.platform == "win32"
@@ -275,8 +277,8 @@ class CloudTranscriber:
 
     name = "cloud"
 
-    def __init__(self, key, models=None):
-        self.client = OpenAI(api_key=key, timeout=30)
+    def __init__(self, client, models=None):
+        self.client = client                             # klient mot vår proxy (account.Account.proxy_client)
         self.models = list(models or STT_MODELS)        # första som fungerar på kontot används
 
     def transcribe(self, audio: np.ndarray, prompt: str = "") -> str:
@@ -305,7 +307,9 @@ class Source:
     def __init__(self, label, device_name, key, on_event, hints=None, transcriber=None):
         self.label, self.device_name, self.key, self.on_event = label, device_name, key, on_event
         self.hints = hints or {}
-        self.transcriber = transcriber or CloudTranscriber(key)    # moln eller lokal Whisper
+        if transcriber is None:
+            raise ValueError("Source kräver en transcriber (moln eller lokal Whisper)")
+        self.transcriber = transcriber
         self.stop = threading.Event()
         self.speaking = False
         self.last_voice = 0.0
@@ -569,9 +573,8 @@ class CloudLLM:
 
     kind = "cloud"
 
-    def __init__(self, key):
-        self.key = key
-        self.client = OpenAI(api_key=key, timeout=15)
+    def __init__(self, client):
+        self.client = client                             # klient mot vår proxy, med kort timeout för förslagen
         self.model = SUMMARY_MODEL
 
     def warm(self):
@@ -587,7 +590,7 @@ class CloudLLM:
                 yield ev.delta
 
     def analyze(self, instructions: str, text: str, schema: dict) -> dict:
-        client = OpenAI(api_key=self.key, timeout=180)
+        client = self.client.with_options(timeout=180)       # analysen får ta längre tid än ett förslag
         base = dict(model=SUMMARY_MODEL, instructions=instructions, input=text)
         try:
             r = client.responses.create(**base, text={"format": {
@@ -860,6 +863,8 @@ class Api:
 
     def __init__(self):
         self.cfg = load_config()
+        self.acct = A.Account(CONFIG_DIR)
+        self._restored = False
         self.q: queue.Queue = queue.Queue()
         self.sources: list[Source] = []
         self.coach: Coach | None = None
@@ -917,19 +922,19 @@ class Api:
                       or os.environ.get("OPENAI_API_KEY") or env_file_key())
         return {"done": True, "engine": "cloud", "quality": "best", "migrated": True} if legacy else {"done": False}
 
-    def _make_transcriber(self, prof: dict, key: str):
-        """Tal-till-text enligt profilen: molnet eller lokal Whisper."""
+    def _make_transcriber(self, prof: dict, client):
+        """Tal-till-text enligt profilen: molnet (via vår proxy) eller lokal Whisper."""
         if prof.get("engine") == "local":
             preset = E.stt_preset(prof.get("stt", ""))
             path = E.whisper_dir(MODELS_DIR, preset["id"]) if preset else ""
             if not preset or not E.whisper_installed(path):
                 raise RuntimeError("Whisper-modellen är inte nedladdad. Öppna inställningarna (kugghjulet) och ladda ner den.")
             return E.get_whisper(path, preset["beam"])
-        if not key:
-            raise RuntimeError("Lägg in en OpenAI API-nyckel först.")
-        return CloudTranscriber(key, STT_BY_TIER.get(prof.get("quality", "balanced"), STT_MODELS))
+        if client is None:
+            raise RuntimeError("Molnläget startas från ett samtal. Välj lokalt läge för testet, eller starta ett samtal.")
+        return CloudTranscriber(client, STT_BY_TIER.get(prof.get("quality", "balanced"), STT_MODELS))
 
-    def _make_llm(self, prof: dict, key: str):
+    def _make_llm(self, prof: dict, client):
         """Textmodell enligt profilen: molnet eller en lokal modell via Ollama."""
         if prof.get("engine") == "local":
             tag = prof.get("llm", "")
@@ -940,9 +945,9 @@ class Api:
             if not self.ol.has(tag):
                 raise RuntimeError(f"Textmodellen {tag} är inte nedladdad. Öppna inställningarna och ladda ner den.")
             return E.LocalLLM(self.ol, tag)
-        if not key:
-            raise RuntimeError("Lägg in en OpenAI API-nyckel först.")
-        return CloudLLM(key)
+        if client is None:
+            raise RuntimeError("Molnläget startas från ett samtal.")
+        return CloudLLM(client)
 
     # ---------- formulär
     def init(self):
@@ -954,8 +959,8 @@ class Api:
             "mics": mics, "loops": loops,
             "mic": self.cfg.get("mic") if self.cfg.get("mic") in mics else def_mic,
             "loop": self.cfg.get("loop") if self.cfg.get("loop") in loops else def_loop,
-            "needKey": prof.get("engine") != "local" and not (os.environ.get("OPENAI_API_KEY") or env_file_key()),
-            "hasSavedKey": bool(self.cfg.get("openai_api_key")),
+            "needKey": False,              # ingen nyckel i appen längre: molnet går via kontot
+            "hasSavedKey": False,
             "setupDone": bool(prof.get("done")),
             "profile": prof,
             "platform": "windows" if IS_WIN else "mac" if IS_MAC else "linux",
@@ -976,12 +981,21 @@ class Api:
             _, _, def_mic, def_loop = list_devices()
             data["mic"], data["loop"] = data.get("mic") or def_mic, data.get("loop") or def_loop
         self.save(data)
-        key = api_key(self.cfg)
         prof = self._profile()
         self.phone = self.cfg["mode"] == "phone"
+        # Servern avgör om samtalet får starta och räknar det mot planen. Appen kan inte hoppa över det här steget:
+        # utan ett öppet samtal släpper proxyn inte igenom något till OpenAI.
+        kind = "local" if prof.get("engine") == "local" else "cloud"
         try:
-            tr = self._make_transcriber(prof, key)
-            llm = self._make_llm(prof, key)
+            gate = self.acct.start_call(kind)
+        except A.AccountError as e:
+            log("start nekades:", e.code)
+            return {"ok": False, "error": str(e), "code": e.code}
+        server_call = gate["call_id"]
+        try:
+            tr = self._make_transcriber(prof, self.acct.proxy_client(server_call, 30) if kind == "cloud" else None)
+            llm = self._make_llm(prof, self.acct.proxy_client(server_call, 15) if kind == "cloud" else None)
+            key = None
             if hasattr(tr, "warm"):
                 tr.warm()    # lokal Whisper laddas in i minnet nu, inte mitt i första repliken
             hints = make_hints(self.cfg["form"])
@@ -999,11 +1013,13 @@ class Api:
                 s.start()
         except Exception as e:
             self.stop()
+            threading.Thread(target=self.acct.end_call, args=(server_call,), daemon=True).start()
             return {"ok": False, "error": f"Kunde inte ansluta: {e}"}
         now = time.time()
         with self._call_lock:
             self.call = {"id": time.strftime("%Y%m%d-%H%M%S", time.localtime(now)), "t0": now,
                          "started": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(now)), "ended": None,
+                         "server_call_id": server_call, "engine": kind,
                          "mode": self.cfg["mode"], "form": dict(self.cfg["form"]),
                          "transcript": [], "suggestions": [], "summary": None, "summary_error": None}
         h = 490 if self.phone else 420
@@ -1019,7 +1035,11 @@ class Api:
         log("stop(): avslutat, stänger", len(old), "källor i bakgrunden")
         set_topmost(False)
         self._ui(lambda: self._win.resize(SETUP_W, SETUP_H), "resize setup")
+        with self._call_lock:
+            sid = (self.call or {}).get("server_call_id")
         rec = self._finish_call()
+        if sid:                                  # stäng samtalet på servern (analysen får fortfarande gå igenom proxyn en stund)
+            threading.Thread(target=self.acct.end_call, args=(sid,), daemon=True).start()
         if rec is None:
             return {"id": None}
         threading.Thread(target=self._summarize, args=(rec,), daemon=True).start()
@@ -1139,7 +1159,7 @@ class Api:
             log("nedladdning fel:", repr(e)[:300])
             self._push(stage="dl_error", error=str(e)[:300])
 
-    def setup_save(self, profile, key=""):
+    def setup_save(self, profile, key="", sync=True):
         """Spara guidens val. Namn och mål fyller i formuläret så att man slipper skriva det igen."""
         goal_map = {"sell": "Sälja", "meetings": "Boka möte", "objections": "Sälja", "learn": "Följa upp"}
         labels = {"sell": "sälja mer", "meetings": "boka fler möten", "objections": "hantera invändningar",
@@ -1164,6 +1184,8 @@ class Api:
             self.cfg["openai_api_key"] = key.strip()
         self.cfg["profile"] = p
         save_config(self.cfg)
+        if sync and self.acct.signed_in:      # valen följer med kontot, och uppstartsguiden markeras som gjord
+            threading.Thread(target=lambda: self._acct_call(self.acct.sync_profile, p), daemon=True).start()
         return True
 
     def setup_test(self, profile, key=""):
@@ -1176,8 +1198,7 @@ class Api:
 
     def _test_worker(self, prof, key):
         try:
-            key = (key or "").strip() or api_key(self.cfg)
-            tr = self._make_transcriber(prof, key)
+            tr = self._make_transcriber(prof, None)       # testet gäller lokalt läge: molnet kräver ett öppet samtal
             self._push(stage="test_loading")
             if hasattr(tr, "warm"):
                 tr.warm()
@@ -1204,6 +1225,48 @@ class Api:
             self._push(stage="test_error", error=str(e)[:300])
         finally:
             self._test_busy = False
+
+    # ---------- konto (inloggning, plan och gränser)
+    def _acct_call(self, fn, *args):
+        """Kör ett kontoanrop och returnera {ok, ...}. Bara felmeddelanden som är säkra att visa når gränssnittet."""
+        try:
+            out = fn(*args)
+            return {"ok": True, **(out if isinstance(out, dict) else {})}
+        except A.AccountError as e:
+            return {"ok": False, "error": str(e), "code": e.code}
+        except Exception as e:
+            log("konto-fel:", type(e).__name__)          # aldrig själva svaret: det kan innehålla uppgifter
+            return {"ok": False, "error": "Något gick fel. Försök igen."}
+
+    def account_state(self):
+        """Är användaren inloggad? Försöker logga in tyst med den sparade inloggningen vid första frågan."""
+        if not self._restored:
+            self._restored = True
+            self.acct.restore()
+        # Ett konto som redan gjort uppstartsguiden, på en dator som inte har sina val än: hämta dem från kontot.
+        mine = self.cfg.get("profile") or {}
+        if self.acct.signed_in and self.acct.onboarded and self.acct.profile and not mine.get("done"):
+            self.setup_save(dict(self.acct.profile), "", sync=False)
+        return {"signedIn": self.acct.signed_in, "email": self.acct.email, "onboarded": self.acct.onboarded}
+
+    def account_send_code(self, email):
+        return self._acct_call(self.acct.send_code, email)
+
+    def account_verify_code(self, email, code):
+        return self._acct_call(self.acct.verify_code, email, code)
+
+    def account_logout(self):
+        self.acct.sign_out()
+        return True
+
+    def account_overview(self):
+        return self._acct_call(lambda: {"account": self.acct.overview(), "email": self.acct.email})
+
+    def account_upgrade(self, plan):
+        return self._acct_call(self.acct.open_checkout, plan)
+
+    def account_portal(self):
+        return self._acct_call(self.acct.open_portal)
 
     # ---------- samtalslogg och analys
     def _record(self, who, text):
@@ -1243,9 +1306,15 @@ class Api:
         return rec
 
     def _summarize(self, rec):
-        key = api_key(self.cfg)
         try:
-            llm = self._make_llm(self._profile(), key)
+            prof = self._profile()
+            client = None
+            if prof.get("engine") != "local":
+                sid = rec.get("server_call_id")
+                if not sid:
+                    raise RuntimeError("Det här samtalet gjordes innan konton fanns och kan inte analyseras om i molnet.")
+                client = self.acct.proxy_client(sid, 180)
+            llm = self._make_llm(prof, client)
             t0 = time.perf_counter()
             rec["summary"], rec["summary_error"] = summarize_call(llm, rec), None
             log("summering klar:", rec["id"], "poäng", rec["summary"].get("score"),

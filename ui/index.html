@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="onboard.css">
+<link rel="stylesheet" href="account.css">
 <style>
   :root {
     --bg: #F6F3EE;
@@ -41,7 +42,8 @@
   input, textarea { user-select: text; }
 
   /* Mjuk färgbakgrund (statisk) */
-  .aura { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  /* Större än fönstret: aurans parallax (±22 px) får aldrig dra bort färgen från en kant */
+  .aura { position: fixed; inset: -60px; pointer-events: none; z-index: 0; overflow: hidden; }
   .aura span { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .4; }
   .aura .a { width: 520px; height: 420px; left: -160px; top: -180px; background: #FFD9CF; }
   .aura .b { width: 460px; height: 380px; right: -140px; top: -140px; background: #E9E4DA; }
@@ -588,11 +590,122 @@
   </div>
 </main>
 
+<!-- ================= Inloggning ================= -->
+<main id="login" class="view" aria-label="Logga in">
+  <div class="lg-bars" id="lgBars" aria-hidden="true"></div>
+  <div class="lg-split">
+    <div class="lg-pitch">
+      <h2>Varje nej har ett <em>svar.</em></h2>
+      <p>Hysch lyssnar på ditt samtal och visar nästa mening medan du fortfarande pratar.</p>
+    </div>
+    <div class="lg-card">
+      <div class="lg-panes" id="lgPanes">
+        <section class="lg-pane on" id="lgEmailPane" aria-label="E-post">
+          <h1>Logga in med din <em>e-post.</em></h1>
+          <p class="lg-sub">Vi mejlar en kod. Inget lösenord att komma ihåg, och nya konton skapas av sig självt.</p>
+          <form id="lgForm" novalidate>
+            <label class="lg-field"><span class="sub">E-post</span><input class="lg-in" id="lgEmail" type="email" autocomplete="username" placeholder="namn@foretag.se" spellcheck="false"></label>
+            <div class="lg-row"><span class="err" id="lgErr" role="alert"></span></div>
+            <button class="cta lg-go" id="lgGo" type="submit">
+              <span id="lgGoTxt">Skicka kod</span>
+              <span class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </button>
+          </form>
+        </section>
+        <section class="lg-pane" id="lgCodePane" aria-label="Kod">
+          <button class="ob-link lg-back" id="lgChange" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Ändra e-post</button>
+          <h1>Kolla din <em>mejl.</em></h1>
+          <p class="lg-sub">Vi skickade en sexsiffrig kod till <b id="lgSentTo"></b>.</p>
+          <div class="lg-codewrap" id="lgCodeWrap">
+            <div class="lg-code" id="lgCode" role="group" aria-label="Sexsiffrig kod"></div>
+            <div class="lg-seal" id="lgSeal" aria-hidden="true"><svg viewBox="0 0 84 84"><circle class="bg" cx="42" cy="42" r="33"/><circle class="ring" cx="42" cy="42" r="40"/><path class="tick" d="M28 43l10 10 19-21"/></svg></div>
+          </div>
+          <div class="lg-row"><span class="err" id="lgCodeErr" role="alert"></span><span class="lg-ok" id="lgCodeOk" aria-live="polite"></span></div>
+          <button class="ob-link lg-resend" id="lgResend" type="button" disabled>Skicka igen om <span id="lgCount">60</span> s</button>
+        </section>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ================= Mitt konto ================= -->
+<main id="account" class="view" aria-label="Mitt konto">
+  <div class="scroll">
+    <div class="ac-top">
+      <button class="pillbtn" id="acBack" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Tillbaka</button>
+      <span class="sp"></span>
+      <span class="ac-mail" id="acMail"></span>
+      <button class="pillbtn" id="acLogout" type="button">Logga ut</button>
+    </div>
+    <div class="ac-head">
+      <h1><span id="acPlanName">Gratis</span><span class="ac-chip" id="acChip" hidden></span></h1>
+      <p id="acSub"></p>
+    </div>
+    <div class="ac-meters" id="acMeters"></div>
+    <div class="ac-notice" id="acNotice" hidden role="status"></div>
+    <div class="ac-section" id="acUpgrade">
+      <h2>Uppgradera</h2>
+      <div class="ac-plans" id="acPlans"></div>
+      <p class="ac-fine">Priser i kronor, inklusive moms. Du betalar säkert hos Stripe och kan säga upp när du vill.</p>
+    </div>
+    <div class="ac-section" id="acManageBox">
+      <button class="ac-btn ghost" id="acManage" type="button" hidden>Hantera prenumeration</button>
+    </div>
+    <p class="ac-fine" id="acFine" aria-live="polite"></p>
+    <p class="ac-err" id="acErr" role="alert"></p>
+  </div>
+</main>
+
+<!-- ================= Inställningar ================= -->
+<main id="settings" class="view" aria-label="Inställningar">
+  <div class="scroll">
+    <div class="ac-top">
+      <button class="pillbtn" id="stBack" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>Tillbaka</button>
+      <span class="sp"></span>
+      <span class="st-saved" id="stSaved" aria-live="polite"></span>
+    </div>
+    <div class="ac-head"><h1>Inställningar</h1><p>Allt sparas av sig självt.</p></div>
+    <div class="st-grid">
+      <section class="tile">
+        <div class="tile-head"><h2>Du<small>Så presenterar coachen dig</small></h2></div>
+        <label><span class="sub">Namn</span><input class="f" id="stName" type="text" placeholder="Ditt namn" autocomplete="off" spellcheck="false"></label>
+        <label><span class="sub">Företag</span><input class="f" id="stCompany" type="text" placeholder="Företag (valfritt)" autocomplete="off" spellcheck="false"></label>
+      </section>
+      <section class="tile">
+        <div class="tile-head"><h2>Mål<small>Coachen riktar förslagen efter dem</small></h2></div>
+        <div class="st-chips" id="stGoals"></div>
+      </section>
+      <section class="tile">
+        <div class="tile-head"><h2>Kvalitet<small>Högre kvalitet tar lite längre tid</small></h2></div>
+        <div class="st-chips" id="stQuality"></div>
+        <p class="st-hint" id="stQualityHint"></p>
+      </section>
+      <section class="tile">
+        <div class="tile-head"><h2>Var tänker Hysch?<small>Moln eller privat på din dator</small></h2></div>
+        <div class="st-chips" id="stEngine"></div>
+        <div class="st-box" id="stEngineBox"></div>
+      </section>
+      <section class="tile span2">
+        <div class="tile-head"><h2>Konto<small id="stAcctSub"></small></h2></div>
+        <div class="st-acct">
+          <div class="st-mail" id="stMail"></div>
+          <span class="sp"></span>
+          <button class="pillbtn" id="stPlans" type="button">Mitt konto och plan</button>
+          <button class="pillbtn" id="stLogout" type="button">Logga ut</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
 <!-- ================= Startformulär ================= -->
 <main id="setup" class="view on">
   <div class="content">
     <div class="hero">
       <div class="hero-actions">
+        <button class="pillbtn histbtn" id="accBtn" type="button" title="Din plan och dina samtal">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Mitt konto
+        </button>
         <button class="pillbtn histbtn" id="setBtn" type="button" title="Ändra namn, motor och modeller">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>Inställningar
         </button>
@@ -675,7 +788,7 @@
   <footer class="footer">
     <div class="gdpr" id="gdpr">
       <span class="ico a"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg></span>
-      <span>Säg i början att samtalet transkriberas med AI. GDPR kräver det.</span>
+      <span>Säg i början att samtalet transkriberas med AI.</span>
     </div>
     <span class="err" id="err"></span>
     <button class="cta" id="startBtn">
@@ -813,9 +926,20 @@ function boot() {
   return ready;
 }
 async function load() {
+  // Inloggning först: allt i appen, även lokalt läge, räknas mot kontot.
+  for (let k = 0; k < 60 && typeof requireLogin !== "function"; k++) await new Promise(r => setTimeout(r, 50));   // account.js laddas efter det här skriptet
+  let acct = await pywebview.api.account_state();
+  AC.email = acct.email || "";
+  if (!acct.signedIn) {
+    await requireLogin();
+    acct = await pywebview.api.account_state();           // hämtar också valen från kontot om det är en ny dator
+    AC.email = acct.email || AC.email;
+  }
+  AC.onboarded = !!acct.onboarded;
   const s = await pywebview.api.init();
   window.__init = s;
-  if (!s.setupDone) {                       // första starten: uppstartsguiden
+  if (!AC.onboarded) showView("onboard"); else showView("setup");
+  if (!AC.onboarded) {                      // nytt konto: uppstartsguiden, en gång
     for (let k = 0; k < 60 && typeof startOnboarding !== "function"; k++) await new Promise(r => setTimeout(r, 50));
     if (typeof startOnboarding === "function") startOnboarding();
   }
@@ -866,7 +990,12 @@ async function start() {
   clearTimeout(lt);
   document.body.classList.remove("launching");
   $("startBtn").disabled = false;
-  if (!r.ok) { showErr(r.error); return; }
+  if (!r.ok) {
+    if (r.code === "limit_reached" || r.code === "subscription_inactive") { openAccount(r.error); return; }
+    if (r.code === "not_logged_in" || r.code === "expired") { await requireLogin(r.error); showView("setup"); return; }
+    showErr(r.error);
+    return;
+  }
   enterLive();
 }
 $("startBtn").onclick = start;
@@ -890,7 +1019,7 @@ $("forceBtn").onclick = force;
 
 document.addEventListener("keydown", (e) => {
   if (!live && e.ctrlKey && e.key === "Enter" && $("setup").classList.contains("on")) { start(); return; }
-  if (!live && e.key === "Escape" && !$("setup").classList.contains("on") && !(typeof OB !== "undefined" && OB.on)) { showView("setup"); return; }
+  if (!live && e.key === "Escape" && !$("setup").classList.contains("on") && !$("login").classList.contains("on") && !(typeof OB !== "undefined" && OB.on)) { showView("setup"); return; }
   if (!live || e.target.matches("input, textarea")) return;
   if (e.code === "Space") { e.preventDefault(); if (!e.repeat) pttDown(); return; }
   const k = e.key.toLowerCase();
@@ -1035,7 +1164,7 @@ document.querySelectorAll(".tile").forEach(t => t.addEventListener("pointermove"
 
 // ================= Vyer =================
 function showView(id) {
-  ["setup", "live", "summary", "history", "onboard"].forEach(v => $(v).classList.toggle("on", v === id));
+  ["setup", "live", "summary", "history", "onboard", "login", "account", "settings"].forEach(v => $(v).classList.toggle("on", v === id));
 }
 
 // ================= Analys efter samtalet =================
@@ -1289,7 +1418,7 @@ async function openHistory() {
   });
 }
 $("histBtn").onclick = openHistory;
-$("setBtn").onclick = () => startOnboarding({ rerun: true });
+$("setBtn").onclick = () => openSettings();
 $("histBack").onclick = () => showView("setup");
 
 function dismissConsent(el) {
@@ -1369,5 +1498,6 @@ document.addEventListener("keyup", (e) => { if (e.code === "Space") { e.preventD
 window.addEventListener("blur", pttUp);   // tappar fönstret fokus mitt i: släpp
 </script>
 <script src="onboard.js"></script>
+<script src="account.js"></script>
 </body>
 </html>

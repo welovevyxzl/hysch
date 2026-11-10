@@ -80,9 +80,8 @@ function obMeter(label, n) {
 // ---------- flöde
 function obFlow() {
   const f = ["welcome", "name", "goals", "quality", "engine"];
-  if (OB.d.engine === "local") f.push("models", "download");
-  else if (OB.d.engine === "cloud") f.push("key");
-  f.push("test", "done");
+  if (OB.d.engine === "local") f.push("models", "download", "test");     // molnet kräver inget här: det går via kontot
+  f.push("done");
   return f;
 }
 function obNeeds() {          // vad som måste laddas ner (lokalt läge)
@@ -98,7 +97,6 @@ function obNextId() {
   const f = obFlow(), i = f.indexOf(OB.step);
   let n = f[i + 1];
   if (OB.step === "models" && obNeeds().total === 0) n = "test";     // inget att ladda ner
-  if (n === "test" && OB.d.engine === "cloud" && !OB.d.keyOk) n = "done";   // inget att testa med utan nyckel
   return n;
 }
 
@@ -109,13 +107,13 @@ const OB_STEPS = {
     const m = el("div", "ob-mark");
     m.innerHTML = '<div class="bigmark"><svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true"><rect width="100" height="100" rx="24" fill="#16181D"/><g fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"><path d="M30 22V76"/><path d="M30 54C30 44 36 38 45 38C55 38 60 44 60 54V76"/></g><circle cx="77" cy="75" r="6.5" fill="#FF5A36"/></svg></div>';
     s.append(m, obHeading("Välkommen till *Hysch.*", "big"),
-      el("p", "ob-sub", "Din säljcoach i örat. Fyra snabba frågor, så att allt passar just dig."));
+      el("p", "ob-sub", "Ditt konto är klart. Fyra snabba frågor, så att allt passar just dig."));
     return { el: s, next: () => ({ label: "Kom igång", hint: "Det tar ungefär en minut." }) };
   },
 
   name() {
     const s = obStep();
-    s.append(el("div", "ob-kicker", "Fråga 1 av 4"), obHeading("Vad *heter* du?"),
+    s.append(obHeading("Vad *heter* du?"),
       el("p", "ob-sub", "Så att coachen kan presentera dig när motparten undrar vem som ringer."));
     const f1 = el("div", "ob-field"), n = el("input", "ob-input xl");
     n.placeholder = "Ditt namn"; n.value = OB.d.name; n.autocomplete = "off"; n.spellcheck = false;
@@ -146,7 +144,7 @@ const OB_STEPS = {
 
   goals() {
     const s = obStep();
-    s.append(el("div", "ob-kicker", "Fråga 2 av 4"), obHeading("Vad vill du få ut av *Hysch?*"),
+    s.append(obHeading("Vad vill du få ut av *Hysch?*"),
       el("p", "ob-sub", "Välj ett eller flera. Coachen riktar sina förslag efter det."));
     const g = el("div", "ob-grid c2");
     GOALS.forEach((x, i) => {
@@ -161,7 +159,7 @@ const OB_STEPS = {
 
   quality() {
     const s = obStep();
-    s.append(el("div", "ob-kicker", "Fråga 3 av 4"), obHeading("Hur *bra* ska det vara?"),
+    s.append(obHeading("Hur *bra* ska det vara?"),
       el("p", "ob-sub", "Högre kvalitet tar lite längre tid. Du kan ändra det när som helst."));
     // Appens egen segmentkontroll: en vit markör glider mellan valen, och förklaringen byts under.
     const seg = el("div", "ob-seg"), detail = el("div", "ob-detail");
@@ -192,8 +190,8 @@ const OB_STEPS = {
     const s = obStep();
     const sys = (OB.info && OB.info.system) || { ram_gb: 0, cores: 0, os: "windows" };
     const ram = sys.ram_gb;
-    s.append(el("div", "ob-kicker", "Fråga 4 av 4"), obHeading("Var ska Hysch *tänka?*"),
-      el("p", "ob-sub", "Du kan använda OpenAI:s moln, eller köra allt privat på din egen dator."));
+    s.append(obHeading("Var ska Hysch *tänka?*"),
+      el("p", "ob-sub", "Du kan använda Hyschs moln, eller köra allt privat på din egen dator."));
     const need = (() => {
       const st = (OB.info ? OB.info.stt : []).find(p => p.tier === OB.d.quality), ll = (OB.info ? OB.info.llm : []).find(p => p.tier === OB.d.quality);
       return st && ll ? obGB(st.mb + ll.mb) : "";
@@ -206,8 +204,8 @@ const OB_STEPS = {
     };
     const g = el("div", "ob-grid c2");
     g.append(
-      mk("cloud", "cloud", "OpenAI-molnet", ["Bäst kvalitet och snabbast svar", "Kräver en egen OpenAI-nyckel (du betalar per användning)", "Ljud och text skickas till OpenAI"], { text: "Enklast", cls: "" }, 0),
-      mk("local", "chip", "På din dator", ["Privat: inget lämnar datorn", `Gratis efter nedladdningen${need ? " (ca " + need + ")" : ""}`, "Kräver mycket minne och kan vara långsammare"], localBadge, 1));
+      mk("cloud", "cloud", "Hyschs moln", ["Bäst kvalitet och snabbast svar", "Ingår i Grundare och Pro, ingen nyckel behövs", "Ljud och text skickas till OpenAI via Hysch"], { text: "Enklast", cls: "" }, 0),
+      mk("local", "chip", "På din dator", ["Privat: inget lämnar datorn", `Gratis: 3 samtal i månaden${need ? ", nedladdning ca " + need : ""}`, "Kräver mycket minne och kan vara långsammare"], localBadge, 1));
     s.append(g);
     const chip = el("div", "ob-chip");
     chip.innerHTML = `<span>Din dator: <b>${sys.os === "mac" ? "Mac" : sys.os === "windows" ? "Windows" : "Linux"}</b> · <b>${ram ? ram.toFixed(0) : "?"} GB</b> minne · <b>${sys.cores}</b> kärnor${sys.cuda ? " · NVIDIA-grafikkort som fungerar" : ""}</span>`;
@@ -217,7 +215,7 @@ const OB_STEPS = {
 
   key() {
     const s = obStep();
-    s.append(el("div", "ob-kicker", "Molnet"), obHeading("Din *OpenAI-nyckel.*"),
+    s.append(obHeading("Din *OpenAI-nyckel.*"),
       el("p", "ob-sub", "Den sparas bara på din dator och används för att prata med OpenAI. Du betalar OpenAI för det du använder."));
     const row = el("div", "ob-keyrow ob-after"), f = el("div", "ob-field"), inp = el("input", "ob-input md");
     inp.type = "password"; inp.placeholder = (OB.info && OB.info.hasKey && !OB.d.key) ? "Du har redan en nyckel sparad" : "sk-..."; inp.autocomplete = "off"; inp.spellcheck = false;
@@ -276,7 +274,7 @@ const OB_STEPS = {
   models() {
     const s = obStep("tight");
     const info = OB.info, ram = info.system.ram_gb;
-    s.append(el("div", "ob-kicker", "Lokal motor"), obHeading("Välj dina *modeller.*"));
+    s.append(obHeading("Välj dina *modeller.*"));
     const wrap = el("div", "ob-scroll"); wrap.style.marginTop = "4px";
     const secA = el("div", "ob-sec"), secB = el("div", "ob-sec");
     secA.append(el("div", "ob-label", "Lyssnar · Whisper, tränad på svenska"));
@@ -369,7 +367,7 @@ const OB_STEPS = {
 
   download() {
     const s = obStep("tight");
-    s.append(el("div", "ob-kicker", "Lokal motor"), obHeading("Hämtar *hjärnan.*"));
+    s.append(obHeading("Hämtar *hjärnan.*"));
     const wrap = el("div", "ob-dl");
     const big = el("div", "ob-bignum");
     big.innerHTML = '<span id="obPct">0</span><small>%</small>';
@@ -412,7 +410,7 @@ const OB_STEPS = {
 
   test() {
     const s = obStep("ob-center");
-    s.append(el("div", "ob-kicker", "Sista kollen"), obHeading("Säg *något.*"),
+    s.append(obHeading("Säg *något.*"),
       el("p", "ob-sub", "Läs en mening högt, så testar vi att Hysch hör dig och skriver rätt."));
     const t = el("div", "ob-test ob-after");
     const orb = el("button", "ob-orb"); orb.type = "button"; orb.id = "obOrb";
@@ -436,14 +434,21 @@ const OB_STEPS = {
     const s = obStep("ob-center");
     const nm = OB.d.name.trim().split(/\s+/)[0] || "";
     s.append(obHeading(`Allt klart${nm ? ", *" + nm + ".*" : ".*"}`, "big"),
-      el("p", "ob-sub", "Hysch är redo för ditt första samtal. Du hittar inställningarna uppe till höger på startsidan."));
+      el("p", "ob-sub", "Hysch är redo för ditt första samtal. Dina val ligger kvar under Inställningar på startsidan."));
     const sum = el("div", "ob-summary");
     const chips = [];
-    chips.push(OB.d.engine === "local" ? "Lokalt på din dator" : "OpenAI-molnet");
+    chips.push(OB.d.engine === "local" ? "Lokalt på din dator" : "Hyschs moln");
     chips.push(QUALITY[OB.d.quality].label);
     if (OB.d.engine === "local") { const st = (OB.info.stt || []).find(p => p.id === OB.d.stt); if (st) chips.push(st.name); chips.push(OB.d.llm); }
     chips.forEach(c => { const d = el("div", "ob-chip"); d.textContent = c; sum.append(d); });
     s.append(sum);
+    if (OB.d.engine === "cloud") {             // molnet ingår inte i Gratis: säg det nu, inte först när samtalet nekas
+      const note = el("div", "ob-note warn"); note.style.cssText = "margin-top:18px;max-width:560px";
+      const g = el("div", "grow"); g.innerHTML = "<b>Molnläget ingår i Grundare och Pro.</b> Du börjar på Gratis, med 3 lokala samtal i månaden.";
+      const b = el("button", "ob-btn pri", "Se planer"); b.type = "button"; b.onclick = () => { OB.afterFinish = "plans"; obNext(); };
+      note.append(g, b); note.hidden = true; s.append(note);
+      pywebview.api.account_overview().then(r => { if (r.ok && r.account.plan === "free") note.hidden = false; });
+    }
     return { el: s, next: () => ({ label: OB.rerun ? "Spara" : "Starta Hysch" }) };
   },
 };
@@ -635,7 +640,7 @@ async function obFinish() {
   if (OB.nav) return;
   OB.nav = true;
   try {
-    await pywebview.api.setup_save(obProfile(), OB.d.skipKey ? "" : OB.d.key);
+    await pywebview.api.setup_save(obProfile(), "");
   } catch (e) { OB.nav = false; return; }
   const ob = $("onboard");
   OB.on = false;
@@ -650,6 +655,7 @@ async function obFinish() {
   if (OB.cur) { OB.cur.el.remove(); OB.cur = null; }
   delete document.body.dataset.scene;
   OB.nav = false;
+  if (OB.afterFinish === "plans") { OB.afterFinish = null; openAccount(); }
 }
 async function obRefreshForm() {       // fyll i formuläret med namnet och målet från guiden
   try {
@@ -703,7 +709,7 @@ async function startOnboarding(opts = {}) {
     for (let k = 0; k < 80 && document.body.classList.contains("intro-on"); k++) await obSleep(100);
     await obSleep(250);
   }
-  obGo(OB.rerun ? "name" : "welcome");
+  obGo(opts.step || (OB.rerun ? "name" : "welcome"));
 }
 // Kameran följer med: auran förskjuts lite åt motsatt håll mot musen (parallax).
 document.addEventListener("pointermove", (e) => {

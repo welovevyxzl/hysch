@@ -6,3 +6,5 @@ config.json
 .env
 __pycache__/
 .impeccable/hook.cache.json
+supabase/.temp/
+.claude/
