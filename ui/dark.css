@@ -1,0 +1,201 @@
+/* Hysch, mörkt tema i Hyschs färger (bläck, papper, korall) med en korallglöd. Gäller allt utom inloggning och uppstartsguide (body.dark sätts av showView).
+   Svart-indigo botten, glasiga kort med tunn ljus kant, lysande korallknappar och en mjuk glöd högst upp. */
+
+body { transition: background-color .5s var(--smooth, ease); }
+body.dark {
+  color-scheme: dark;
+  --bg: #121317;
+  --ink: #F6F3EE;
+  --ink-2: #D6D2C9;
+  --muted: #A8A49B;
+  --faint: #8E8A82;
+  --line: rgba(246, 243, 238, .09);
+  --field: rgba(246, 243, 238, .05);
+  --field-hover: rgba(246, 243, 238, .08);
+  --fill: rgba(246, 243, 238, .07);
+  --glass: rgba(246, 243, 238, .05);
+  --surface: linear-gradient(180deg, rgba(246, 243, 238, .065), rgba(246, 243, 238, .028));
+  --accent: #FF7A55;
+  --accent-2: #B79CFF;
+  --accent-text: #FF8A6B;
+  --them: #F6F3EE;
+  --err: #FF8E8E;
+  --mint: #4ADE9B;
+  --amber: #FBBF24;
+  --grad: linear-gradient(135deg, #FF7A55, #FF5A36);
+  --shadow: 0 0 0 1px rgba(246, 243, 238, .085), 0 1px 0 rgba(246, 243, 238, .06) inset, 0 28px 48px -30px rgba(0, 0, 0, .8);
+  background: var(--bg);
+  color: var(--ink);
+}
+/* glöden: en stor mjuk korallglöd högst upp, och en svagare i hörnet */
+body.dark::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(58% 52% at 50% -14%, rgba(255, 90, 54, .62), transparent 72%),
+    radial-gradient(34% 30% at 92% 4%, rgba(255, 150, 80, .26), transparent 70%),
+    radial-gradient(40% 30% at 6% 100%, rgba(255, 120, 60, .16), transparent 70%); }
+body.dark .titlebar .name { color: var(--muted); }
+body.dark .mark { box-shadow: 0 0 0 1px rgba(246, 243, 238, .16), 0 0 18px rgba(255, 90, 54, .4); }
+body.dark .winbtns button { color: var(--ink-2); }
+body.dark .winbtns button:hover { background: rgba(246, 243, 238, .09); }
+body.dark .winbtns button.x:hover { background: #C42B1C; color: #fff; }
+body.dark ::-webkit-scrollbar-thumb { background: rgba(246, 243, 238, .16); border: 4px solid transparent; background-clip: padding-box; border-radius: 12px; }
+body.dark select option { background: #1C1D22; color: #F6F3EE; }
+body.dark .err { color: var(--err); }
+body.dark ::selection { background: rgba(255, 90, 54, .55); color: #fff; }
+
+/* rubriker: rent vitt */
+body.dark .title { color: #fff; }
+body.dark .back { color: var(--accent-text); }
+body.dark .lede, body.dark .sec-h, body.dark .sec-f { color: var(--muted); }
+
+/* ---------- kort och listor: glas med tunn kant ---------- */
+body.dark .grp, body.dark .modes, body.dark .st-box, body.dark .ac-plan, body.dark .card, body.dark .stage, body.dark .hrow {
+  backdrop-filter: blur(14px) saturate(130%); }
+body.dark .hrow:hover { box-shadow: 0 0 0 1px rgba(255, 138, 107, .4), 0 1px 0 rgba(246, 243, 238, .06) inset, 0 28px 48px -26px rgba(0, 0, 0, .8); }
+body.dark .grp:focus-within { box-shadow: 0 0 0 1px rgba(255, 138, 107, .65), 0 0 0 5px rgba(255, 90, 54, .16), 0 1px 0 rgba(246, 243, 238, .06) inset, 0 28px 48px -30px rgba(0, 0, 0, .8); }
+body.dark .mode:hover, body.dark .row-btn:hover { background: rgba(246, 243, 238, .04); }
+body.dark .row input, body.dark .row select, body.dark .ta { color: var(--ink); }
+body.dark .row select { color: var(--ink-2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%238E8A82' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 5.2 5 2.2l3 3M2 8.8l3 3 3-3'/%3E%3C/svg%3E"); }
+body.dark .mode::after { border-color: #FF8A6B; filter: drop-shadow(0 0 6px rgba(255, 138, 107, .7)); }
+body.dark .row-btn.danger { color: #FF8E8E; }
+body.dark .st-saved { color: var(--mint); }
+
+/* ---------- knappar ---------- */
+body.dark .tb, body.dark .pillbtn { background: rgba(246, 243, 238, .06); box-shadow: 0 0 0 1px rgba(246, 243, 238, .1); color: var(--ink); }
+body.dark .tb svg { color: var(--accent-text); }
+body.dark .tb:hover, body.dark .pillbtn:hover { background: rgba(246, 243, 238, .11); color: #fff; }
+body.dark .pillbtn.dark, body.dark .ibtn.main { background: var(--grad); color: #16181D; box-shadow: 0 0 22px -4px rgba(255, 90, 54, .6); }
+body.dark .pillbtn.dark:hover, body.dark .ibtn.main:hover { background: linear-gradient(135deg, #FF8A6B, #FF5A36); }
+/* startknappen: mörk pill med lysande korallkant */
+body.dark #setup .cta { border: 1.5px solid transparent; color: #fff;
+  background: linear-gradient(#121317, #121317) padding-box, linear-gradient(100deg, #FF7A55, #FFC2AE 50%, #FF9A6B) border-box;
+  box-shadow: 0 0 30px -6px rgba(255, 90, 54, .75); }
+body.dark #setup .cta:hover { background: linear-gradient(#1B1C21, #1B1C21) padding-box, linear-gradient(100deg, #FF7A55, #FFC2AE 50%, #FF9A6B) border-box; box-shadow: 0 0 38px -4px rgba(255, 90, 54, .9); }
+body.dark #setup .kbd { color: var(--muted); }
+body.dark #setup .footer { background: rgba(10, 9, 18, .72); border-top-color: var(--line); }
+body.dark #setup .gdpr { color: var(--muted); }
+body.dark .ac-btn { background: var(--grad); color: #16181D; box-shadow: 0 0 22px -6px rgba(255, 90, 54, .6); }
+body.dark .ac-btn:hover { background: linear-gradient(135deg, #FF8A6B, #FF5A36); }
+body.dark .ac-btn.ghost { background: rgba(246, 243, 238, .07); color: var(--ink); box-shadow: 0 0 0 1px rgba(246, 243, 238, .1); }
+body.dark .ac-btn.ghost:hover { background: rgba(246, 243, 238, .12); }
+
+/* ---------- segmenterade val ---------- */
+body.dark .goals, body.dark .seg-chips { background: rgba(246, 243, 238, .05); box-shadow: 0 0 0 1px rgba(246, 243, 238, .08) inset; }
+body.dark .thumb, body.dark .seg-chips .st-chip.on {
+  background: linear-gradient(180deg, rgba(255, 138, 107, .34), rgba(255, 90, 54, .22)); color: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 138, 107, .45) inset, 0 6px 18px -6px rgba(255, 90, 54, .6); }
+body.dark .goal, body.dark .seg-chips .st-chip { color: var(--ink-2); }
+body.dark .goal.on, body.dark .goal:hover, body.dark .seg-chips .st-chip:hover, body.dark .seg-chips .st-chip.on { color: #fff; }
+body.dark .st-chip { background: rgba(246, 243, 238, .07); color: var(--ink-2); }
+body.dark .st-chip:hover { background: rgba(246, 243, 238, .12); color: #fff; }
+body.dark .st-chip.on { background: var(--grad); color: #16181D; box-shadow: 0 0 18px -4px rgba(255, 90, 54, .6); }
+body.dark .seg-chips .st-chip { background: transparent; }
+
+/* ---------- konto ---------- */
+body.dark .ac-plan.hot { background: radial-gradient(120% 90% at 0% 0%, rgba(255, 90, 54, .42), transparent 70%), var(--surface);
+  color: var(--ink); box-shadow: 0 0 0 1px rgba(255, 138, 107, .5), 0 0 48px -14px rgba(255, 90, 54, .55), 0 1px 0 rgba(246, 243, 238, .08) inset; }
+body.dark .ac-plan .nm, body.dark .ac-plan .pr small { color: var(--muted); }
+body.dark .ac-plan.hot .nm, body.dark .ac-plan.hot .pr small { color: var(--ink-2); }
+body.dark .ac-plan.hot ul { color: var(--ink); }
+body.dark .ac-plan.hot .ac-btn { background: linear-gradient(135deg, #FF8A6B, #FF5A36); color: #16181D; }
+body.dark .ac-plan:not(.hot) .ac-btn { background: rgba(246, 243, 238, .09); box-shadow: 0 0 0 1px rgba(246, 243, 238, .14); color: var(--ink); }
+body.dark .ac-plan:not(.hot) .ac-btn:hover { background: rgba(246, 243, 238, .15); }
+body.dark .ac-bar { background: rgba(246, 243, 238, .09); }
+body.dark .ac-bar i { background: linear-gradient(90deg, #FF5A36, #FFB199); box-shadow: 0 0 12px rgba(255, 90, 54, .6); }
+body.dark .ac-bar.full i { background: linear-gradient(90deg, #F97316, #FB7185); box-shadow: 0 0 12px rgba(251, 113, 133, .5); }
+body.dark .ac-chip { background: rgba(246, 243, 238, .09); color: var(--ink-2); }
+body.dark .ac-chip.ok { background: rgba(74, 222, 155, .14); color: #6EE7B0; }
+body.dark .ac-chip.warn { background: rgba(251, 191, 36, .15); color: #FCD34D; }
+body.dark .ac-notice { background: rgba(251, 191, 36, .12); color: #FCD34D; box-shadow: 0 0 0 1px rgba(251, 191, 36, .22) inset; }
+body.dark .ac-notice.bad { background: rgba(255, 106, 106, .12); color: #FF9B9B; box-shadow: 0 0 0 1px rgba(255, 106, 106, .25) inset; }
+body.dark .st-line i { background: var(--mint); box-shadow: 0 0 8px var(--mint); }
+body.dark .st-line.no i { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+
+/* ---------- live ---------- */
+body.dark .live-dot { box-shadow: 0 0 10px rgba(74, 222, 155, .6); }
+body.dark .voice { background: rgba(246, 243, 238, .06); color: var(--muted); }
+body.dark .voice.you.on { background: rgba(74, 222, 155, .14); color: #6EE7B0; box-shadow: 0 0 0 3px rgba(74, 222, 155, .1); }
+body.dark .voice.them.on { background: rgba(246, 243, 238, .12); color: #fff; box-shadow: 0 0 0 3px rgba(246, 243, 238, .06); }
+body.dark .consent { background: rgba(251, 191, 36, .12); color: #FCD34D; box-shadow: 0 0 0 1px rgba(251, 191, 36, .2) inset; }
+body.dark .consent button { background: rgba(251, 191, 36, .16); color: #FCD34D; }
+body.dark .say-lbl { color: var(--accent-text); } body.dark .say-lbl i { background: var(--accent-text); box-shadow: 0 0 8px var(--accent); }
+body.dark .stage.thinking { box-shadow: 0 0 0 1px rgba(255, 138, 107, .6), 0 0 44px -10px rgba(255, 90, 54, .6), 0 1px 0 rgba(246, 243, 238, .06) inset; }
+body.dark .stage.thinking .say-lbl span { background-image: linear-gradient(90deg, #FF8A6B 0%, #FF8A6B 38%, #fff 50%, #FF8A6B 62%, #FF8A6B 100%); }
+body.dark #alts button:hover { background: rgba(255, 90, 54, .2); color: #fff; }
+body.dark #alts kbd { background: rgba(246, 243, 238, .1); color: var(--ink-2); box-shadow: 0 0 0 1px rgba(246, 243, 238, .12); }
+body.dark .ptt { background: rgba(246, 243, 238, .07); color: var(--ink); box-shadow: 0 0 0 1px rgba(246, 243, 238, .16) inset; }
+body.dark .ptt:hover { background: rgba(246, 243, 238, .12); }
+body.dark .ptt kbd { background: rgba(246, 243, 238, .12); color: var(--ink); }
+body.dark .ptt.on { background: var(--grad); color: #16181D; box-shadow: 0 0 34px -6px rgba(255, 90, 54, .85); }
+body.dark .ibtn { background: rgba(246, 243, 238, .06); box-shadow: 0 0 0 1px rgba(246, 243, 238, .1); color: var(--ink-2); }
+body.dark .ibtn:hover { background: rgba(246, 243, 238, .12); color: #fff; }
+body.dark .ibtn.end:hover { background: rgba(255, 106, 106, .16); color: #FF9B9B; }
+
+/* ---------- analys och historik ---------- */
+body.dark .pill { background: rgba(246, 243, 238, .08); color: var(--ink-2); }
+body.dark .pill.good { background: rgba(74, 222, 155, .14); color: #6EE7B0; }
+body.dark .pill.mid { background: rgba(251, 191, 36, .15); color: #FCD34D; }
+body.dark .pill.bad { background: rgba(255, 106, 106, .15); color: #FF9B9B; }
+body.dark .pill.violet { background: rgba(255, 90, 54, .22); color: #FFB8A3; }
+body.dark .card.next { background: radial-gradient(120% 120% at 0% 0%, rgba(255, 138, 107, .5), transparent 70%), linear-gradient(160deg, #FF6A45, #E8431F);
+  box-shadow: 0 0 0 1px rgba(255, 138, 107, .5), 0 0 48px -14px rgba(255, 90, 54, .7); }
+body.dark .card.next h3 { color: rgba(22, 24, 29, .72); }
+body.dark .card.next p { color: #16181D; }
+body.dark .card.good-l li::before { background: var(--mint); } body.dark .card.imp-l li::before { background: var(--amber); }
+body.dark .ring .track { stroke: rgba(246, 243, 238, .09); }
+body.dark .ring .arc { filter: drop-shadow(0 0 8px rgba(255, 90, 54, .7)); }
+body.dark .ratio .bar { background: rgba(246, 243, 238, .08); }
+body.dark .todo .box { box-shadow: inset 0 0 0 1.5px var(--faint); }
+body.dark .todo.done .box { background: var(--grad); }
+body.dark .obj .b { background: rgba(255, 90, 54, .14); color: var(--ink); }
+body.dark .obj .b em { color: var(--accent-text); }
+body.dark .tline .w.du { background: rgba(74, 222, 155, .14); color: #6EE7B0; }
+body.dark .tline .w.mp { background: rgba(246, 243, 238, .1); color: var(--ink); }
+body.dark .hrow .sc { background: rgba(246, 243, 238, .07); color: var(--muted); }
+body.dark .hrow .sc.good { background: rgba(74, 222, 155, .14); color: #6EE7B0; }
+body.dark .hrow .sc.mid { background: rgba(251, 191, 36, .15); color: #FCD34D; }
+body.dark .hrow .sc.bad { background: rgba(246, 243, 238, .1); color: var(--ink); }
+body.dark .skel { background: linear-gradient(90deg, rgba(246, 243, 238, .03) 0%, rgba(246, 243, 238, .08) 50%, rgba(246, 243, 238, .03) 100%) 0 0 / 200% 100%; }
+body.dark .analyzing span { background-image: linear-gradient(90deg, var(--muted) 0%, var(--muted) 38%, #fff 50%, var(--muted) 62%, var(--muted) 100%); }
+body.dark .toast { background: #2A2622; color: #fff; box-shadow: 0 0 0 1px rgba(255, 138, 107, .35), 0 12px 32px rgba(0, 0, 0, .5); }
+
+/* ---------- start, avslut och ansluter ---------- */
+body.dark .bigmark { box-shadow: 0 0 0 1px rgba(246, 243, 238, .16), 0 0 80px rgba(255, 90, 54, .55); }
+body.dark .minibars b { background: linear-gradient(#FF8A6B, #FF5A36); }
+body.dark .intro, body.dark .launch { color: var(--muted); }
+
+/* =====================================================================
+   Samtalsvyn, omgjord: förslaget är hela sidan, kanten lyser när någon pratar
+   ===================================================================== */
+body.dark #live { padding: 2px 18px 16px; gap: 10px; }
+body.dark #live .consent { order: 0; border-radius: 12px; padding: 7px 8px 7px 12px; }
+body.dark #live .heard { order: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden;
+  min-height: 36px; padding: 2px 2px 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+body.dark #live .heard b { color: var(--accent-text); font-weight: 600; }
+body.dark #live .stage { order: 2; background: none; box-shadow: none; backdrop-filter: none; border-radius: 0; padding: 2px 2px 0; animation: none; transition: opacity .5s var(--smooth); }
+body.dark #live .ptt { order: 3; }
+body.dark #live .dock { order: 4; gap: 8px; padding-top: 2px; }
+
+body.dark .say-lbl { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; margin-bottom: 10px; }
+body.dark #main { font-size: 26px; line-height: 1.2; letter-spacing: -.032em; font-weight: 600; color: #F6F3EE; transition: opacity .3s var(--smooth); }
+body.dark #main.wait { font-size: 20px; letter-spacing: -.02em; font-weight: 500; color: var(--faint); }
+body.dark .stage.thinking #main:not(.wait) { opacity: .42; }
+body.dark #alts { gap: 8px; padding-top: 16px; }
+body.dark #alts button { gap: 11px; padding: 10px 12px; border-radius: 14px; font-size: 13.5px; line-height: 1.4; background: rgba(246, 243, 238, .045);
+  box-shadow: 0 0 0 1px rgba(246, 243, 238, .08) inset; }
+body.dark #alts button:hover { background: rgba(255, 90, 54, .12); box-shadow: 0 0 0 1px rgba(255, 138, 107, .45) inset; transform: none; color: #fff; }
+body.dark #alts kbd { min-width: 20px; height: 20px; border-radius: 6px; font-size: 11px; background: rgba(246, 243, 238, .08); box-shadow: none; color: var(--ink-2); }
+
+body.dark .dock .ibtn { height: 38px; border-radius: 999px; padding: 0 15px; }
+body.dark .dock .ibtn.sq { width: 38px; padding: 0; justify-content: center; }
+body.dark .lat { font-size: 12px; }
+
+/* kanten: korall när motparten pratar, svagt vitt när det är du */
+body.is-live::after { content: ""; position: fixed; inset: 0; z-index: 3; pointer-events: none;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 138, 107, 0), inset 0 0 0 rgba(255, 90, 54, 0); transition: box-shadow .5s var(--smooth); }
+body.is-live.them-talk::after { box-shadow: inset 0 0 0 1.5px rgba(255, 138, 107, .75), inset 0 0 70px rgba(255, 90, 54, .3); }
+body.is-live.you-talk:not(.them-talk)::after { box-shadow: inset 0 0 0 1.5px rgba(246, 243, 238, .3), inset 0 0 60px rgba(246, 243, 238, .08); }
+body.paused::after { box-shadow: none !important; }
+body.dark #main { font-size: 24px; }
+body.dark #alts button span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

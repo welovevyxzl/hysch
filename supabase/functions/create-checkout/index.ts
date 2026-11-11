@@ -41,8 +41,8 @@ Deno.serve(async (req) => {
     line_items: [{ price, quantity: 1 }],
     subscription_data: { metadata: { user_id: user.id, plan } },
     locale: "sv",
-    success_url: `${site}/?betalning=klar`,
-    cancel_url: `${site}/?betalning=avbruten#pricing`,
+    success_url: `${site}/konto.html?betalning=klar`,
+    cancel_url: `${site}/konto.html?betalning=avbruten`,
   });
   return json({ url: session.url });
 });

@@ -39,6 +39,9 @@ LIMIT_TEXT = {
 }
 
 
+log_hook = lambda *a: None          # sätts av appen till dess logg
+
+
 class AccountError(Exception):
     """Ett fel som är säkert att visa för användaren."""
 
@@ -285,9 +288,15 @@ class Account:
             r = self.http.post(f"{self.url}/functions/v1/{name}", headers=self._headers(self.token()), json=body, timeout=30)
         except httpx.HTTPError:
             raise AccountError("Ingen kontakt med servern. Kolla internet och försök igen.", "offline")
-        j = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+        try:
+            j = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+        except ValueError:
+            j = {}
         if r.status_code == 200 and j.get("url"):
             return j["url"]
+        log_hook(f"funktion {name}: http {r.status_code}", str(j.get("error", ""))[:80])      # bara status och felkod
+        if r.status_code >= 500 and not j.get("error"):
+            raise AccountError("Betalningen är inte färdigkopplad på servern än. Prova igen senare.", "server_config")
         msgs = {
             "founding_sold_out": "Grundarplatserna är slut. Välj Pro.",
             "already_subscribed": "Du har redan en prenumeration. Öppna Hantera prenumeration.",

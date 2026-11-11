@@ -369,8 +369,9 @@ const OB_STEPS = {
     const s = obStep("tight");
     s.append(obHeading("Hämtar *hjärnan.*"));
     const wrap = el("div", "ob-dl");
-    const big = el("div", "ob-bignum");
-    big.innerHTML = '<span id="obPct">0</span><small>%</small>';
+    const big = el("div", "ob-ring"); big.id = "obRingBox";
+    big.innerHTML = '<svg viewBox="0 0 160 160" aria-hidden="true"><circle class="trk" cx="80" cy="80" r="70"/><circle class="val" id="obRing" cx="80" cy="80" r="70"/></svg>'
+      + '<div class="ob-bignum"><span id="obPct">0</span><small>%</small></div>';
     const eta = el("div", "ob-eta"); eta.id = "obEta"; eta.textContent = "Förbereder …";
     const parts = el("div", "ob-parts");
     const mkPart = (id, title) => {
@@ -433,7 +434,9 @@ const OB_STEPS = {
   done() {
     const s = obStep("ob-center");
     const nm = OB.d.name.trim().split(/\s+/)[0] || "";
-    s.append(obHeading(`Allt klart${nm ? ", *" + nm + ".*" : ".*"}`, "big"),
+    const chk = el("div", "ob-check");
+    chk.innerHTML = '<svg viewBox="0 0 96 96" aria-hidden="true"><circle class="disc" cx="48" cy="48" r="46"/><path class="tickp" d="M28 50l14 14 27-30"/></svg>';
+    s.append(chk, obHeading(`Allt klart${nm ? ", *" + nm + ".*" : ".*"}`, "big"),
       el("p", "ob-sub", "Hysch är redo för ditt första samtal. Dina val ligger kvar under Inställningar på startsidan."));
     const sum = el("div", "ob-summary");
     const chips = [];
@@ -483,7 +486,7 @@ async function obGo(id, back = false) {
     if (prev) {
       if (prev.onLeave) prev.onLeave();
       prev.el.classList.add("leave");
-      await obSleep(300);
+      await obSleep(230);
       prev.el.remove();
     }
     if (!back && OB.step) OB.hist.push(OB.step);
@@ -539,6 +542,8 @@ function obPaintDl() {
   });
   const frac = total ? Math.min(1, done / total) : 0;
   if ($("obPct")) $("obPct").textContent = Math.floor(frac * 100);
+  const rg = $("obRing");
+  if (rg) { rg.style.strokeDashoffset = String(439.8 * (1 - frac)); $("obRingBox").classList.toggle("done", frac >= 1); }
   const sp = OB.dlSpeed;
   const now = performance.now();
   if (now - sp.t > 700) { const inst = (done - sp.bytes) / ((now - sp.t) / 1000); sp.bps = sp.bps ? sp.bps * 0.7 + inst * 0.3 : inst; sp.t = now; sp.bytes = done; }
@@ -646,7 +651,7 @@ async function obFinish() {
   OB.on = false;
   document.body.classList.remove("ob-busy");
   // appen visas under guiden medan guiden zoomar bort
-  $("setup").classList.add("on");
+  document.body.classList.add("dark"); $("setup").classList.add("on");
   document.body.classList.remove("ob-on");
   ob.classList.add("leaving");
   await obRefreshForm();
@@ -674,7 +679,7 @@ function obClose() {                    // stäng guiden utan att spara (bara vi
   document.body.classList.remove("ob-on", "ob-busy");
   clearInterval(OB.poll);
   const ob = $("onboard");
-  $("setup").classList.add("on");
+  document.body.classList.add("dark"); $("setup").classList.add("on");
   ob.classList.add("leaving");
   setTimeout(() => { ob.classList.remove("on", "leaving"); if (OB.cur) { OB.cur.el.remove(); OB.cur = null; } OB.nav = false; }, 800);
 }

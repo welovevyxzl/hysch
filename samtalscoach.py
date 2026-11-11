@@ -26,6 +26,7 @@ except ImportError:                  # Mac/Linux (ej testat): vanlig PortAudio
 from openai import OpenAI
 
 import account as A
+A.log_hook = lambda *a: log(*a)
 import engines as E
 
 IS_WIN = sys.platform == "win32"

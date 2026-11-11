@@ -204,31 +204,30 @@ $("lgResend").onclick = lgResend;
 $("lgChange").onclick = () => { clearInterval(LG.timer); lgPane("email"); setTimeout(() => $("lgEmail").focus(), 550); };
 
 // ================= Mitt konto =================
-const PLAN_NAME = { free: "Gratis", founding: "Grundare", pro: "Pro" };
+const PLAN_NAME = { free: "Gratis", founding: "Grundare", pro: "Pro", admin: "Admin" };
 const fmtDay = (iso) => new Date(iso).toLocaleDateString("sv-SE", { day: "numeric", month: "long" });
 
-function acMeter(label, used, limit, hint) {
+function acMeter(label, used, limit, resets) {
   const t = document.createElement("div");
-  t.className = "tile ac-meter";
+  t.className = "ac-meter";
   const unlimited = limit === null || limit === undefined, none = limit === 0;
-  const p = unlimited ? 0 : none ? 0 : Math.min(1, used / limit);
-  t.innerHTML = `<span class="lbl"></span><div class="val"></div><div class="ac-bar"><i></i></div><div class="hint"></div>`;
+  const p = unlimited || none ? 0 : Math.min(1, used / limit);
+  t.innerHTML = `<div class="top"><span class="lbl"></span><span class="val"></span></div><div class="ac-bar"><i></i></div>`;
   t.querySelector(".lbl").textContent = label;
-  t.querySelector(".val").innerHTML = unlimited ? `Obegränsat` : none ? `Ingår inte` : `${used}<small>av ${limit}</small>`;
+  t.querySelector(".val").textContent = unlimited ? "Obegränsat" : none ? "Ingår inte" : `${used} av ${limit}` + (resets ? ` · ${resets}` : "");
   const bar = t.querySelector(".ac-bar");
   bar.classList.toggle("full", !unlimited && !none && used >= limit);
   bar.classList.toggle("none", unlimited || none);
-  t.querySelector(".hint").textContent = hint || "";
   requestAnimationFrame(() => requestAnimationFrame(() => bar.firstElementChild.style.setProperty("--p", p)));
   return t;
 }
 
 function acPlanCard(id, name, price, items, hot) {
   const c = document.createElement("div");
-  c.className = "tile ac-plan" + (hot ? " hot" : "");
-  c.innerHTML = `<span class="nm"></span><div class="pr"></div><ul></ul><button class="ac-btn" type="button"></button>`;
+  c.className = "ac-plan" + (hot ? " hot" : "");
+  c.innerHTML = `<div class="hd"><span class="nm"></span><span class="pr"></span></div><ul></ul><button class="ac-btn" type="button"></button>`;
   c.querySelector(".nm").textContent = name;
-  c.querySelector(".pr").innerHTML = `${price}<small>kr i månaden</small>`;
+  c.querySelector(".pr").innerHTML = `${price} kr<small>/mån</small>`;
   items.forEach(t => { const li = document.createElement("li"); li.textContent = t; c.querySelector("ul").append(li); });
   const b = c.querySelector(".ac-btn");
   b.textContent = "Välj " + name;
@@ -239,34 +238,34 @@ function acPlanCard(id, name, price, items, hot) {
 function acRender(a, notice) {
   const plan = a.plan, paid = plan !== "free";
   $("acMail").textContent = AC.email;
-  $("acPlanName").innerHTML = `${PLAN_NAME[plan] || plan}`;
+  $("acPlanName").textContent = PLAN_NAME[plan] || plan;
   const chip = $("acChip");
   chip.className = "ac-chip"; chip.hidden = !paid;
   if (a.status === "past_due") { chip.textContent = "Betalning saknas"; chip.classList.add("warn"); }
   else if (paid) { chip.textContent = a.cancel_at_period_end ? "Avslutas" : "Aktiv"; chip.classList.add(a.cancel_at_period_end ? "warn" : "ok"); }
   $("acSub").textContent = paid
-    ? (a.current_period_end ? (a.cancel_at_period_end ? `Din plan gäller till ${fmtDay(a.current_period_end)}.` : `Förnyas ${fmtDay(a.current_period_end)}.`) : "")
-    : "Du kan prova lokalt läge gratis. Molnläget ingår i Grundare och Pro.";
+    ? (a.current_period_end ? (a.cancel_at_period_end ? `Gäller till ${fmtDay(a.current_period_end)}` : `Förnyas ${fmtDay(a.current_period_end)}`) : "")
+    : "Lokalt läge är gratis. Molnläget ingår i Grundare och Pro.";
 
   const m = $("acMeters"); m.replaceChildren();
-  const resets = a.period_start ? "Räknas om " + fmtDay(new Date(new Date(a.period_start).setMonth(new Date(a.period_start).getMonth() + 1))) : "";
+  const resets = a.period_start ? "nollas " + fmtDay(new Date(new Date(a.period_start).setMonth(new Date(a.period_start).getMonth() + 1))) : "";
   m.append(
-    acMeter("Molnsamtal den här månaden", Number(a.cloud_calls_used), a.cloud_calls_per_month, a.cloud_calls_per_month ? resets : ""),
-    acMeter("Lokala samtal den här månaden", Number(a.local_calls_used), a.local_calls_per_month, a.local_calls_per_month ? resets : ""));
+    acMeter("Molnsamtal", Number(a.cloud_calls_used), a.cloud_calls_per_month, a.cloud_calls_per_month ? resets : ""),
+    acMeter("Lokala samtal", Number(a.local_calls_used), a.local_calls_per_month, a.local_calls_per_month ? resets : ""));
 
   const n = $("acNotice");
   n.hidden = !(notice || a.status === "past_due");
   n.className = "ac-notice" + (a.status === "past_due" ? " bad" : "");
   n.textContent = a.status === "past_due"
-    ? "Din senaste betalning gick inte igenom. Uppdatera kortet under Hantera prenumeration så att du inte tappar din plan."
+    ? "Din senaste betalning gick inte igenom. Uppdatera kortet under Hantera så att du inte tappar din plan."
     : (notice || "");
 
   $("acUpgrade").hidden = paid;
-  $("acManage").hidden = !paid;
+  $("acManage").hidden = !paid || plan === "admin";
   if (!paid && !$("acPlans").childElementCount) {
     $("acPlans").append(
-      acPlanCard("founding", "Grundare", 100, ["10 molnsamtal i månaden", "Obegränsat lokalt läge", "Priset ligger fast för de första 50"], true),
-      acPlanCard("pro", "Pro", 200, ["20 molnsamtal i månaden", "Obegränsat lokalt läge", "Hantera och säg upp när du vill"], false));
+      acPlanCard("founding", "Grundare", 100, ["10 molnsamtal i månaden", "Priset ligger fast för de första 50"], true),
+      acPlanCard("pro", "Pro", 200, ["20 molnsamtal i månaden", "Säg upp när du vill"], false));
   }
 }
 

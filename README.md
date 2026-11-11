@@ -131,7 +131,6 @@ Computer mode gives the best transcription, because their voice arrives digitall
 - **On your PC:** your settings and API key, and every call's transcript and debrief, in `%APPDATA%\Hysch`. Downloaded Whisper models are in `%APPDATA%\Hysch\models`. Hysch does not keep audio.
 - **Cloud mode:** the audio of each turn is sent to OpenAI for transcription, and the text of the conversation for the coach and the debrief, using your own key.
 - **Local mode:** nothing is sent anywhere. The only internet use is the one-time model download.
-- **Tell the person you are calling.** Say at the start that the call is transcribed with AI and saved. GDPR requires it, and Hysch reminds you in the live view.
 
 <br>
 

@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
   const configuration = Deno.env.get("STRIPE_PORTAL_CONFIG");    // Hysch egen portalinställning
   const session = await stripe.billingPortal.sessions.create({
     customer: sub.stripe_customer_id,
-    return_url: env("SITE_URL"),
+    return_url: env("SITE_URL").replace(/\/$/, "") + "/konto.html",
     ...(configuration ? { configuration } : {}),
   });
   return json({ url: session.url });

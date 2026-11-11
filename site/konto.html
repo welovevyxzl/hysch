@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mitt konto – Hysch</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F6F3EE">
+<link rel="icon" type="image/svg+xml" href="assets/logo-mark.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --paper:#F6F3EE; --ink:#16181D; --ink-2:#4A4D55; --muted:#666A72; --coral:#FF5A36; --line:rgba(22,24,29,.1); --err:#B3261E;
+  --font:"Geist","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--paper); color:var(--ink); font-family:var(--font); font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased; min-height:100vh; }
+a { color:inherit; }
+button { font:inherit; cursor:pointer; }
+header { display:flex; align-items:center; justify-content:space-between; width:min(720px,calc(100% - 40px)); margin:0 auto; padding:22px 0; }
+header img { height:30px; }
+main { width:min(520px,calc(100% - 40px)); margin:24px auto 80px; }
+h1 { font-size:34px; line-height:1.05; letter-spacing:-.04em; font-weight:600; }
+.sub { margin:8px 0 22px; color:var(--ink-2); font-size:15px; overflow-wrap:anywhere; }
+.card { background:#fff; border-radius:22px; padding:22px; box-shadow:0 0 0 1px var(--line); }
+input { width:100%; border:0; outline:0; background:#F6F3EE; border-radius:14px; padding:15px 16px; font:inherit; font-size:17px; box-shadow:0 0 0 1px var(--line); }
+input:focus { box-shadow:0 0 0 1.5px var(--coral), 0 0 0 4px rgba(255,90,54,.14); }
+input.code { text-align:center; letter-spacing:.5em; font-size:26px; font-weight:600; padding-left:calc(16px + .5em); }
+.btn { border:0; border-radius:999px; padding:13px 22px; background:var(--ink); color:#fff; font-weight:600; font-size:15px; width:100%; margin-top:12px; transition:transform .2s; }
+.btn:hover { transform:translateY(-1px); }
+.btn[disabled] { opacity:.55; transform:none; cursor:default; }
+.btn.ghost { background:transparent; color:var(--ink); box-shadow:0 0 0 1px var(--line); width:auto; margin:0; padding:9px 16px; font-size:14px; }
+.btn.coral { background:var(--coral); color:var(--ink); }
+.link { background:none; border:0; color:var(--muted); font-size:13.5px; margin-top:14px; text-decoration:underline; }
+.err { color:var(--err); font-size:13.5px; font-weight:500; min-height:20px; margin-top:10px; }
+.ok { color:#0E6B47; }
+.row { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.k { font-size:12.5px; color:var(--muted); font-weight:500; }
+.v { font-size:24px; font-weight:600; letter-spacing:-.03em; display:flex; align-items:center; gap:10px; }
+.chip { font-size:12px; font-weight:600; padding:3px 9px; border-radius:999px; background:#DDF3E8; color:#0E6B47; letter-spacing:0; }
+.chip.warn { background:#FFF1D6; color:#7A5300; }
+.s { font-size:14px; color:var(--ink-2); margin-top:2px; }
+.usage { margin-top:18px; padding-top:16px; border-top:1px solid var(--line); display:grid; gap:14px; }
+.m .top { display:flex; justify-content:space-between; font-size:14px; gap:12px; }
+.m .top span:last-child { color:var(--muted); }
+.bar { height:6px; border-radius:99px; background:rgba(22,24,29,.08); margin-top:7px; overflow:hidden; }
+.bar i { display:block; height:100%; background:var(--ink); border-radius:inherit; }
+.bar.full i { background:var(--coral); }
+h2 { font-size:14px; font-weight:600; margin:28px 0 10px; }
+.plans { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.plan { display:flex; flex-direction:column; gap:10px; background:#fff; border-radius:20px; padding:16px 18px; box-shadow:0 0 0 1px var(--line); }
+.plan.hot { background:var(--ink); color:#fff; }
+.plan .hd { display:flex; justify-content:space-between; align-items:baseline; }
+.plan .hd b { font-size:15px; } .plan .hd span { font-size:22px; font-weight:600; letter-spacing:-.03em; }
+.plan small { font-size:12.5px; color:var(--muted); font-weight:500; }
+.plan ul { list-style:none; font-size:13px; color:var(--ink-2); display:grid; gap:5px; flex:1; }
+.plan.hot ul, .plan.hot small { color:rgba(255,255,255,.8); }
+.plan .btn { margin-top:0; }
+.fine { font-size:12.5px; color:var(--muted); margin-top:12px; }
+.banner { padding:13px 16px; border-radius:16px; background:#DDF3E8; color:#0E6B47; font-size:14px; margin-bottom:14px; }
+.banner.warn { background:#FFF6E0; color:#6B5210; }
+.dl { display:block; text-align:center; margin-top:22px; font-size:14px; color:var(--muted); }
+[hidden] { display:none !important; }
+@media (max-width:560px) { .plans { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <a href="index.html" aria-label="Hysch"><img src="assets/logo-mark.svg" alt="Hysch"></a>
+  <button class="btn ghost" id="logout" type="button" hidden>Logga ut</button>
+</header>
+<main>
+  <!-- inloggning -->
+  <section id="viewEmail" hidden>
+    <h1>Logga in</h1>
+    <p class="sub">Skriv din e-post så mejlar vi en sexsiffrig kod. Inget lösenord, och nya konton skapas av sig självt.</p>
+    <form class="card" id="formEmail">
+      <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="namn@foretag.se" required>
+      <button class="btn" id="goEmail" type="submit">Skicka kod</button>
+      <p class="err" id="errEmail" role="alert"></p>
+    </form>
+  </section>
+  <section id="viewCode" hidden>
+    <h1>Kolla din e-post</h1>
+    <p class="sub">Vi skickade en kod till <b id="sentTo"></b>.</p>
+    <form class="card" id="formCode">
+      <input id="code" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="9" placeholder="000000" required>
+      <button class="btn" id="goCode" type="submit">Logga in</button>
+      <p class="err" id="errCode" role="alert"></p>
+      <button class="link" id="back" type="button">Använd en annan e-post</button>
+    </form>
+  </section>
+
+  <!-- konto -->
+  <section id="viewAccount" hidden>
+    <h1>Mitt konto</h1>
+    <p class="sub" id="mail"></p>
+    <div class="banner" id="banner" hidden></div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="k">Plan</div>
+          <div class="v"><span id="planName">Gratis</span><span class="chip" id="chip" hidden></span></div>
+          <div class="s" id="planSub"></div>
+        </div>
+        <button class="btn ghost" id="manage" type="button" hidden>Hantera</button>
+      </div>
+      <div class="usage" id="usage"></div>
+    </div>
+    <div id="upgrade">
+      <h2>Uppgradera för molnläget</h2>
+      <div class="plans">
+        <div class="plan hot"><div class="hd"><b>Grundare</b><span>100 kr<small>/mån</small></span></div>
+          <ul><li>10 molnsamtal i månaden</li><li>Priset ligger fast för de första 50</li></ul>
+          <button class="btn coral" data-plan="founding" type="button">Välj Grundare</button></div>
+        <div class="plan"><div class="hd"><b>Pro</b><span>200 kr<small>/mån</small></span></div>
+          <ul><li>20 molnsamtal i månaden</li><li>Säg upp när du vill</li></ul>
+          <button class="btn" data-plan="pro" type="button">Välj Pro</button></div>
+      </div>
+      <p class="fine">Priser i kronor, inklusive moms. Du betalar säkert hos Stripe.</p>
+    </div>
+    <p class="err" id="errAcct" role="alert"></p>
+    <a class="dl" data-download href="index.html#download">Ladda ner Hysch för Windows</a>
+  </section>
+  <p class="sub" id="loading">Laddar …</p>
+</main>
+<script src="konto.js"></script>
+</body>
+</html>
