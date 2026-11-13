@@ -26,23 +26,35 @@ Deno.serve(async (req) => {
     if ((count ?? 0) >= FOUNDER_LIMIT) return json({ error: "founding_sold_out" }, 409);
   }
 
-  const stripe = new Stripe(env("STRIPE_SECRET_KEY"), { httpClient: Stripe.createFetchHttpClient() });
-  let customer = sub?.stripe_customer_id as string | null | undefined;
-  if (!customer) {
-    customer = (await stripe.customers.create({ email: user.email ?? undefined, metadata: { user_id: user.id } })).id;
-    await db.from("subscriptions").update({ stripe_customer_id: customer }).eq("user_id", user.id);
-  }
+  // Fel från Stripe skickas tillbaka som läsbar text (aldrig nycklar), så att appen och loggen visar vad som gick fel i stället för ett tomt 500.
+  try {
+    // Kontot har Managed Payments på, och det kräver API-version 2025-03-31.basil eller nyare. stripe@17 använder en äldre som standard,
+    // så versionen sätts här uttryckligen (annars svarar Stripe 400 och funktionen 500).
+    const stripe = new Stripe(env("STRIPE_SECRET_KEY"), {
+      apiVersion: "2025-03-31.basil" as unknown as Stripe.LatestApiVersion,
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+    let customer = sub?.stripe_customer_id as string | null | undefined;
+    if (!customer) {
+      customer = (await stripe.customers.create({ email: user.email ?? undefined, metadata: { user_id: user.id } })).id;
+      await db.from("subscriptions").update({ stripe_customer_id: customer }).eq("user_id", user.id);
+    }
 
-  const site = env("SITE_URL").replace(/\/$/, "");
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer,
-    client_reference_id: user.id,
-    line_items: [{ price, quantity: 1 }],
-    subscription_data: { metadata: { user_id: user.id, plan } },
-    locale: "sv",
-    success_url: `${site}/konto.html?betalning=klar`,
-    cancel_url: `${site}/konto.html?betalning=avbruten`,
-  });
-  return json({ url: session.url });
+    const site = env("SITE_URL").replace(/\/$/, "");
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer,
+      client_reference_id: user.id,
+      line_items: [{ price, quantity: 1 }],
+      subscription_data: { metadata: { user_id: user.id, plan } },
+      locale: "sv",
+      success_url: `${site}/konto.html?betalning=klar`,
+      cancel_url: `${site}/konto.html?betalning=avbruten`,
+    });
+    return json({ url: session.url });
+  } catch (e) {
+    const message = String((e as Error)?.message ?? e).slice(0, 300);
+    console.error("create-checkout:", message);
+    return json({ error: "checkout_failed", message }, 502);
+  }
 });
